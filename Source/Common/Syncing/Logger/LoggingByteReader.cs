@@ -1,4 +1,4 @@
-using Multiplayer.Common;
+﻿using Multiplayer.Common;
 
 namespace Multiplayer.Client
 {

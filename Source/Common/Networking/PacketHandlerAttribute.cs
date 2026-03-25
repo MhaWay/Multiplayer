@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using HarmonyLib;
 using JetBrains.Annotations;
 
@@ -12,6 +12,14 @@ namespace Multiplayer.Common
         public readonly bool allowFragmented = allowFragmented;
     }
 
+    public class TypedPacketHandlerAttribute : Attribute;
+
+    [AttributeUsage(AttributeTargets.Class)]
+    public class PacketHandlerClassAttribute(bool inheritHandlers = false) : Attribute
+    {
+        public readonly bool inheritHandlers = inheritHandlers;
+    }
+
     [MeansImplicitUse]
     [AttributeUsage(AttributeTargets.Method)]
     public class FragmentedPacketHandlerAttribute(Packets packet) : Attribute
@@ -19,5 +27,7 @@ namespace Multiplayer.Common
         public readonly Packets packet = packet;
     }
 
-    public record PacketHandlerInfo(FastInvokeHandler Method, bool Fragment, FastInvokeHandler? FragmentHandler = null);
+    public delegate void PacketHandlerInvoker(object target, ByteReader data);
+
+    public record PacketHandlerInfo(PacketHandlerInvoker Method, bool Fragment, FastInvokeHandler? FragmentHandler = null);
 }

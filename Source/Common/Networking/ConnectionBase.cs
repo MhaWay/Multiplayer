@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Multiplayer.Common.Networking.Packet;
 
 namespace Multiplayer.Common
 {
@@ -33,14 +34,26 @@ namespace Multiplayer.Common
             StateObj?.StartState();
         }
 
-        public void Send(Packets id)
-        {
-            Send(id, Array.Empty<byte>());
-        }
+        public void Send(Packets id) => Send(id, Array.Empty<byte>());
 
-        public void Send(Packets id, params object[] msg)
+        public void Send(Packets id, params object[] msg) => Send(id, ByteWriter.GetBytes(msg));
+
+        public void Send(SerializedPacket packet, bool reliable = true) => Send(packet.id, packet.data, reliable);
+
+        public void Send<T>(T packet, bool reliable = true) where T : struct, IPacket
         {
-            Send(id, ByteWriter.GetBytes(msg));
+            var writer = new ByteWriter();
+            writer.WriteByte((byte)(Convert.ToByte(packet.GetId()) & 0x3F));
+            packet.Bind(new PacketWriter(writer));
+
+            if (State == ConnectionStateEnum.Disconnected)
+                return;
+
+            var dataLen = writer.Position - 1; // The first byte is metadata.
+            if (dataLen > MaxSinglePacketSize)
+                throw new PacketSendException($"Packet {packet.GetId()} too big for sending ({dataLen}>{MaxSinglePacketSize})");
+
+            SendRaw(writer.ToArray(), reliable);
         }
 
         public virtual void Send(Packets id, byte[] message, bool reliable = true)
@@ -124,10 +137,9 @@ namespace Multiplayer.Common
             }
         }
 
-        public void SendFragmented(Packets id, params object[] msg)
-        {
-            SendFragmented(id, ByteWriter.GetBytes(msg));
-        }
+        public void SendFragmented(SerializedPacket packet) => SendFragmented(packet.id, packet.data);
+
+        public void SendFragmented(Packets id, params object[] msg) => SendFragmented(id, ByteWriter.GetBytes(msg));
 
         protected abstract void SendRaw(byte[] raw, bool reliable = true);
 
@@ -164,6 +176,7 @@ namespace Multiplayer.Common
                 if (reliable && !Lenient)
                     throw new PacketReadException($"No handler for packet {packetType} in state {State}");
                 ServerLog.Error($"No handler for packet {packetType} in state {State}");
+                reader.Seek(reader.Length);
                 return;
             }
 
@@ -227,7 +240,7 @@ namespace Multiplayer.Common
         {
             var writer = new ByteWriter();
             writer.WriteEnum(reason);
-            writer.WritePrefixedBytes(data ?? Array.Empty<byte>());
+            writer.WriteRaw(data ?? Array.Empty<byte>());
             return writer.ToArray();
         }
     }
