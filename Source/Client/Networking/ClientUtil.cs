@@ -59,9 +59,12 @@ namespace Multiplayer.Client
             {
                 Log.Error($"Exception handling packet by {Multiplayer.Client}: {e}");
 
-                Multiplayer.session.disconnectInfo.titleTranslated = "MpPacketErrorLocal".Translate();
+                var info = new SessionDisconnectInfo
+                {
+                    titleTranslated = "MpPacketErrorLocal".Translate()
+                };
 
-                ConnectionStatusListeners.TryNotifyAll_Disconnected();
+                ConnectionStatusListeners.TryNotifyAll_Disconnected(info);
                 Multiplayer.StopMultiplayer();
             }
         }

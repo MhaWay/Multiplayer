@@ -34,10 +34,11 @@ namespace Multiplayer.Client.Networking
 
         public void OnPeerDisconnected(NetPeer peer, DisconnectInfo info)
         {
+            // Fallback: should generally be handled by ClientBaseState.HandleDisconnected.
             MpDisconnectReason reason;
-            byte[] data;
+            ByteReader reader;
 
-            if (info.AdditionalData.IsNull)
+            if (info.AdditionalData.IsNull || info.AdditionalData.AvailableBytes == 0)
             {
                 if (info.Reason is DisconnectReason.DisconnectPeerCalled or DisconnectReason.RemoteConnectionClose)
                     reason = MpDisconnectReason.Generic;
@@ -46,17 +47,18 @@ namespace Multiplayer.Client.Networking
                 else
                     reason = MpDisconnectReason.NetFailed;
 
-                data = new [] { (byte)info.Reason };
+                var writer = new ByteWriter();
+                writer.WriteEnum(info.Reason);
+                reader = new ByteReader(writer.ToArray());
             }
             else
             {
-                var reader = new ByteReader(info.AdditionalData.GetRemainingBytes());
-                reason = reader.ReadEnum<MpDisconnectReason>();
-                data = reader.ReadPrefixedBytes();
+                var rawReader = new ByteReader(info.AdditionalData.GetRemainingBytes());
+                reason = rawReader.ReadEnum<MpDisconnectReason>();
+                reader = rawReader;
             }
 
-            Multiplayer.session.ProcessDisconnectPacket(reason, data);
-            ConnectionStatusListeners.TryNotifyAll_Disconnected();
+            ConnectionStatusListeners.TryNotifyAll_Disconnected(SessionDisconnectInfo.From(reason, reader));
 
             Multiplayer.StopMultiplayer();
             MpLog.Log($"Net client disconnected {info.Reason}");

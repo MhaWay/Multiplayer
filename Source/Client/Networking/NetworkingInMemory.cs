@@ -30,7 +30,7 @@ namespace Multiplayer.Client.Networking
             });
         }
 
-        public override void Close(MpDisconnectReason reason, byte[] data)
+        protected override void OnClose()
         {
         }
 
@@ -66,7 +66,7 @@ namespace Multiplayer.Client.Networking
             });
         }
 
-        public override void Close(MpDisconnectReason reason, byte[] data)
+        protected override void OnClose()
         {
         }
 

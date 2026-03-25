@@ -124,7 +124,7 @@ namespace Multiplayer.Client
         }
 
         public void Connected() => result = "MpConnected".Translate();
-        public void Disconnected() { }
+        public void Disconnected(SessionDisconnectInfo info) { }
     }
 
     public class RejoiningWindow : BaseConnectingWindow

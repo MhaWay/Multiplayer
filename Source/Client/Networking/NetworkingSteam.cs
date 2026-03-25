@@ -39,10 +39,8 @@ namespace Multiplayer.Client.Networking
             );
         }
 
-        public override void Close(MpDisconnectReason reason, byte[] data)
+        protected override void OnClose()
         {
-            if (State != ConnectionStateEnum.ClientSteam)
-                Send(Packets.Special_Steam_Disconnect, GetDisconnectBytes(reason, data));
         }
 
         public abstract void OnError(EP2PSessionError error);
@@ -61,11 +59,8 @@ namespace Multiplayer.Client.Networking
         {
             if (msgId == (int)Packets.Special_Steam_Disconnect)
             {
-                Multiplayer.session.ProcessDisconnectPacket(
-                    reader.ReadEnum<MpDisconnectReason>(),
-                    reader.ReadPrefixedBytes()
-                );
-                OnDisconnect();
+                var reason = reader.ReadEnum<MpDisconnectReason>();
+                OnDisconnect(SessionDisconnectInfo.From(reason, reader));
                 return;
             }
 
@@ -74,15 +69,19 @@ namespace Multiplayer.Client.Networking
 
         public override void OnError(EP2PSessionError error)
         {
-            Multiplayer.session.disconnectInfo.titleTranslated =
-                error == EP2PSessionError.k_EP2PSessionErrorTimeout ? "MpSteamTimedOut".Translate() : "MpSteamGenericError".Translate();
+            var info = new SessionDisconnectInfo
+            {
+                titleTranslated = error == EP2PSessionError.k_EP2PSessionErrorTimeout
+                    ? "MpSteamTimedOut".Translate()
+                    : "MpSteamGenericError".Translate()
+            };
 
-            OnDisconnect();
+            OnDisconnect(info);
         }
 
-        private void OnDisconnect()
+        private void OnDisconnect(SessionDisconnectInfo info)
         {
-            ConnectionStatusListeners.TryNotifyAll_Disconnected();
+            ConnectionStatusListeners.TryNotifyAll_Disconnected(info);
             Multiplayer.StopMultiplayer();
         }
     }
