@@ -76,7 +76,8 @@ namespace Multiplayer.Common
         // We can send a single packet up to MaxSinglePacketSize but when specifically sending a fragmented packet,
         // use smaller sizes so that we have more control over them.
         public const int MaxFragmentPacketSize = 1024;
-        public const int MaxPacketSize = 33_554_432;
+        // Max size of a packet that can be sent fragmented. It is not possible to send any packets larger than this.
+        public const int MaxFragmentPacketTotalSize = 33_554_432;
 
         private const int FragNone = 0x0;
         private const int FragMore = 0x40;
@@ -97,13 +98,19 @@ namespace Multiplayer.Common
                 return;
             }
 
-            var fragId = sendFragId++;
             // every packet has an additional 2 bytes of overhead
             const int maxFragmentSize = MaxFragmentPacketSize - 2;
             // the first packet has an additional 6 bytes of overhead
             var totalLength = message.Length + 6;
+            if (totalLength > MaxFragmentPacketTotalSize)
+            {
+                throw new PacketSendException(
+                    $"Tried to send too big packet {id}. Max size: {MaxFragmentPacketTotalSize}, requested size (incl. overhead): {totalLength}.");
+            }
+
             // Divide rounding up
             var fragParts = (totalLength + maxFragmentSize - 1) / maxFragmentSize;
+            var fragId = sendFragId++;
             int read = 0;
             var writer = new ByteWriter(MaxFragmentPacketSize);
             while (read < message.Length)
@@ -155,7 +162,10 @@ namespace Multiplayer.Common
             byte msgId = (byte)(info & 0x3F);
             byte fragState = (byte)(info & 0xC0);
 
+            int msgLen = data.Left;
             HandleReceiveMsg(msgId, fragState, data, reliable);
+            if (data.Left > 0)
+                ServerLog.Error($"Packet was not fully consumed: {msgId}, msg len: {msgLen}");
         }
 
         private const int MaxFragmentedPackets = 1;
@@ -180,7 +190,7 @@ namespace Multiplayer.Common
                 return;
             }
 
-            if (fragState == FragNone) handler.Method(StateObj, reader);
+            if (fragState == FragNone) ExecuteMessageHandler(handler, packetType, reader);
             else HandleReceiveFragment(reader, packetType, handler);
         }
 
@@ -203,8 +213,8 @@ namespace Multiplayer.Common
                 var expectedSize = reader.ReadUInt32();
                 if (expectedParts < 2)
                     ServerLog.Error($"Received fragmented packet with only {expectedParts} expected parts (packet type: {packetType}, fragment id: {fragId}, expected size: {expectedSize}).");
-                if (expectedSize > MaxPacketSize)
-                    throw new PacketReadException($"Full packet {packetType} too big {expectedSize}>{MaxPacketSize}");
+                if (expectedSize > MaxFragmentPacketTotalSize)
+                    throw new PacketReadException($"Full packet {packetType} too big {expectedSize}>{MaxFragmentPacketTotalSize}");
 
                 fragPacket = FragmentedPacket.Create(packetType, expectedParts, expectedSize);
                 fragIndex = fragments.Count;
@@ -220,6 +230,7 @@ namespace Multiplayer.Common
             fragPacket.Data.Write(reader.GetBuffer(), reader.Position, reader.Left);
             fragPacket.ReceivedSize += Convert.ToUInt32(reader.Left);
             fragPacket.ReceivedPartsCount++;
+            reader.Seek(reader.Length);
 
             if (fragPacket.ReceivedPartsCount < fragPacket.ExpectedPartsCount)
             {
@@ -231,7 +242,26 @@ namespace Multiplayer.Common
                 throw new PacketReadException($"Fragmented packet {packetType} (fragId {fragId}) recombined with different than expected size: {fragPacket.ReceivedSize} != {fragPacket.ExpectedSize}");
 
             fragments.RemoveAt(fragIndex);
-            handler.Method(StateObj, new ByteReader(fragPacket.Data.GetBuffer()));
+            ExecuteMessageHandler(handler, packetType, new ByteReader(fragPacket.Data.GetBuffer()));
+        }
+
+        private void ExecuteMessageHandler(PacketHandlerInfo handler, Packets packet, ByteReader data)
+        {
+            var pos = data.Position;
+            try
+            {
+                handler.Method(StateObj, data);
+            }
+            catch (Exception e)
+            {
+                // Don't assume the actual packet's data is at index 0. Packets store extra metadata at the start
+                // of the same ByteReader. We do not care about that metadata here.
+                var packetLen = data.Length - pos;
+                var bytesToShow = Math.Min(128, packetLen);
+                var bytes = data.GetBuffer().SubArray(pos, bytesToShow);
+                var bytesStr = bytes.ToHexString();
+                throw new PacketReadException($"Exception handling packet {packet} in state {State} (first {bytesToShow}/{packetLen} bytes: {bytesStr})", e);
+            }
         }
 
         public abstract void Close(MpDisconnectReason reason, byte[]? data = null);
@@ -240,7 +270,7 @@ namespace Multiplayer.Common
         {
             var writer = new ByteWriter();
             writer.WriteEnum(reason);
-            writer.WriteRaw(data ?? Array.Empty<byte>());
+            writer.WriteRaw(data ?? []);
             return writer.ToArray();
         }
     }

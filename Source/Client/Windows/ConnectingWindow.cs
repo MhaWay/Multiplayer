@@ -1,7 +1,7 @@
-using Multiplayer.Client.Networking;
-using Steamworks;
 using System.Linq;
+using Multiplayer.Client.Networking;
 using Multiplayer.Client.Util;
+using Steamworks;
 using UnityEngine;
 using Verse;
 
@@ -134,8 +134,7 @@ namespace Multiplayer.Client
 
     public class ConnectingWindow(string address, int port) : BaseConnectingWindow
     {
-        protected override string ConnectingString =>
-            string.Format("MpConnectingTo".Translate("{0}", port), address);
+        protected override string ConnectingString => "MpConnectingTo".Translate(address, port);
     }
 
     public class SteamConnectingWindow(CSteamID hostId) : BaseConnectingWindow

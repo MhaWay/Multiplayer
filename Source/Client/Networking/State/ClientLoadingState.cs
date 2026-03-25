@@ -1,5 +1,6 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using Ionic.Zlib;
 using Multiplayer.Client.Saving;
@@ -14,6 +15,7 @@ public enum LoadingState
     Downloading
 }
 
+[PacketHandlerClass(inheritHandlers: true)]
 public class ClientLoadingState(ConnectionBase connection) : ClientBaseState(connection)
 {
     public LoadingState subState = LoadingState.Waiting;
@@ -29,19 +31,23 @@ public class ClientLoadingState(ConnectionBase connection) : ClientBaseState(con
             var firstCheckpoint = downloadCheckpoints.First();
             var lastCheckpoint = downloadCheckpoints.Last();
             var timeTakenMs = Utils.MillisNow - firstCheckpoint.Item1;
-            var timeTakenSecs = Math.Max(1, timeTakenMs / 1000);
+            var timeTakenSecs = timeTakenMs / 1000f;
+
             var downloadedBytes = lastCheckpoint.Item2 - firstCheckpoint.Item2;
-            return (int)(downloadedBytes / 1000 / timeTakenSecs);
+            var downloadedKBytes = downloadedBytes / 1000;
+            return (int)(downloadedKBytes / timeTakenSecs);
         }
     }
 
     private List<(long, uint)> downloadCheckpoints = new(capacity: 64);
+    private Stopwatch downloadTimeStopwatch = new();
 
     [PacketHandler(Packets.Server_WorldDataStart)]
     public void HandleWorldDataStart(ByteReader data)
     {
         subState = LoadingState.Downloading;
         connection.Lenient = false; // Lenient is set while rejoining
+        downloadTimeStopwatch.Start();
     }
 
     [FragmentedPacketHandler(Packets.Server_WorldData)]
@@ -57,7 +63,9 @@ public class ClientLoadingState(ConnectionBase connection) : ClientBaseState(con
     [PacketHandler(Packets.Server_WorldData, allowFragmented: true)]
     public void HandleWorldData(ByteReader data)
     {
-        Log.Message("Game data size: " + data.Length);
+        var downloadMs = downloadTimeStopwatch.ElapsedMilliseconds;
+        downloadTimeStopwatch.Reset();
+        Log.Message($"Game data size: {data.Length}. Took {downloadMs}ms to receive.");
 
         int factionId = data.ReadInt32();
         Multiplayer.session.myFactionId = factionId;
@@ -125,7 +133,10 @@ public class ClientLoadingState(ConnectionBase connection) : ClientBaseState(con
             onCancel: GenScene.GoToMainMenu // Calls StopMultiplayer through a patch
         );
 
+        Stopwatch watch = Stopwatch.StartNew();
         Loader.ReloadGame(mapsToLoad, true, false);
+        var loadingMs = watch.ElapsedMilliseconds;
+        Log.Message($"Loaded game in {loadingMs}ms");
         connection.ChangeState(ConnectionStateEnum.ClientPlaying);
     }
 }
