@@ -26,7 +26,7 @@ if (File.Exists(settingsFile))
     if (settings.lan) settings.lanAddress = GetLocalIpAddress() ?? "127.0.0.1";
 }
 else
-    TomlSettingsCommon.Save(settings, settingsFile); // Save default settings
+    ServerLog.Log($"Bootstrap mode: '{settingsFile}' not found. Waiting for a client to upload it.");
 
 var server = MultiplayerServer.instance = new MultiplayerServer(settings)
 {
@@ -34,12 +34,38 @@ var server = MultiplayerServer.instance = new MultiplayerServer(settings)
     initDataState = InitDataState.Waiting
 };
 
+var bootstrap = !File.Exists(settingsFile);
+
 var consoleSource = new ConsoleSource();
 
-LoadSave(server, saveFile);
+if (!bootstrap && File.Exists(saveFile))
+{
+    LoadSave(server, saveFile);
+}
+else
+{
+    bootstrap = true;
+    ServerLog.Log($"Bootstrap mode: '{saveFile}' not found. Server will start without a loaded save.");
+    ServerLog.Log("Waiting for a client to upload world data.");
+}
+server.BootstrapMode = bootstrap;
+
+if (bootstrap)
+    ServerLog.Detail("Bootstrap flag is enabled.");
+
 server.liteNet.StartNet();
 
 new Thread(server.Run) { Name = "Server thread" }.Start();
+
+// In bootstrap mode we keep the server alive and wait for any client to connect.
+// The actual world data upload is handled by the normal networking code paths.
+if (bootstrap)
+    BootstrapMode.WaitForClient(server, CancellationToken.None);
+
+// If bootstrap mode completed (a client uploaded save.zip) the server thread will have set
+// server.running = false. In that case, exit so the user can restart the server normally.
+if (bootstrap && !server.running)
+    return;
 
 while (true)
 {

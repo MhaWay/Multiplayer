@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using Multiplayer.Common.Networking.Packet;
 
 namespace Multiplayer.Common
 {
@@ -14,6 +15,7 @@ namespace Multiplayer.Common
         {
             MpConnectionState.SetImplementation(ConnectionStateEnum.ServerSteam, typeof(ServerSteamState));
             MpConnectionState.SetImplementation(ConnectionStateEnum.ServerJoining, typeof(ServerJoiningState));
+            MpConnectionState.SetImplementation(ConnectionStateEnum.ServerBootstrap, typeof(ServerBootstrapState));
             MpConnectionState.SetImplementation(ConnectionStateEnum.ServerLoading, typeof(ServerLoadingState));
             MpConnectionState.SetImplementation(ConnectionStateEnum.ServerPlaying, typeof(ServerPlayingState));
         }
@@ -51,6 +53,12 @@ namespace Multiplayer.Common
 
         public volatile bool running;
         public event Action<MultiplayerServer>? TickEvent;
+
+        /// <summary>
+        /// True when the server is running without an initial save loaded.
+        /// In this mode the first connected client is expected to configure/upload the world.
+        /// </summary>
+        public bool BootstrapMode { get; set; }
 
         public bool ArbiterPlaying => PlayingPlayers.Any(p => p.IsArbiter && p.status == PlayerStatus.Playing);
         public ServerPlayer HostPlayer => PlayingPlayers.First(p => p.IsHost);
@@ -200,6 +208,12 @@ namespace Multiplayer.Common
         public void SendToPlaying(Packets id, object[] data)
         {
             SendToPlaying(id, ByteWriter.GetBytes(data));
+        }
+
+        public void SendToPlaying<T>(T packet, bool reliable = true, ServerPlayer? excluding = null) where T : IPacket
+        {
+            var materialized = packet.Serialize();
+            SendToPlaying(materialized.id, materialized.data, reliable, excluding);
         }
 
         public void SendToPlaying(Packets id, byte[] data, bool reliable = true, ServerPlayer? excluding = null)

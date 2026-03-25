@@ -65,6 +65,15 @@ public enum Packets : byte
     // All states (Joining, Loading, Playing)
     Server_Disconnect,
 
+    // Bootstrap
+    Client_BootstrapSettingsUploadStart,
+    Client_BootstrapSettingsUploadData,
+    Client_BootstrapSettingsUploadFinish,
+    Client_BootstrapUploadStart,
+    Client_BootstrapUploadData,
+    Client_BootstrapUploadFinish,
+    Server_Bootstrap,
+
     Count,
     Special_Steam_Disconnect = 63 // Also the max packet id
 }

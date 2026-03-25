@@ -82,6 +82,12 @@ public struct SessionDisconnectInfo
         if (reason == MpDisconnectReason.ServerPacketRead) descKey = "MpPacketErrorRemote";
         if (reason == MpDisconnectReason.BadGamePassword) descKey = "MpBadGamePassword";
 
+        if (reason == MpDisconnectReason.BootstrapCompleted)
+        {
+            titleKey = "MpBootstrapCompleted";
+            descKey = "MpBootstrapCompletedDesc";
+        }
+
         disconnectInfo.titleTranslated ??= titleKey?.Translate();
         disconnectInfo.descTranslated ??= descKey?.Translate();
 

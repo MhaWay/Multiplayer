@@ -1,4 +1,6 @@
-﻿using System.Threading.Tasks;
+﻿using System.IO;
+using System.Threading.Tasks;
+using Multiplayer.Common.Networking.Packet;
 
 namespace Multiplayer.Common;
 
@@ -22,6 +24,14 @@ public class ServerJoiningState : AsyncConnectionState
         if (HandleClientJoinData(await Packet(Packets.Client_JoinData).Fragmented()) is false)
             return;
 
+        // In bootstrap mode we only need the handshake (protocol/username/join data) so the client can stay connected
+        // and upload settings/save. We must NOT proceed into world loading / playing states.
+        if (Server.BootstrapMode)
+        {
+            connection.ChangeState(ConnectionStateEnum.ServerBootstrap);
+            return;
+        }
+
         if (Server.settings.pauseOnJoin)
             Server.commands.PauseAll();
 
@@ -43,7 +53,17 @@ public class ServerJoiningState : AsyncConnectionState
         if (clientProtocol != MpVersion.Protocol)
             Player.Disconnect(MpDisconnectReason.Protocol, ByteWriter.GetBytes(MpVersion.Version, MpVersion.Protocol));
         else
+        {
             Player.SendPacket(Packets.Server_ProtocolOk, new object[] { Server.settings.hasPassword });
+
+            // Let the client know early when the server is in bootstrap mode so it can switch
+            // to server-configuration flow while keeping the connection open.
+            var settingsMissing = false;
+            if (Server.BootstrapMode)
+                settingsMissing = !File.Exists(Path.Combine(System.AppContext.BaseDirectory, "settings.toml"));
+
+            Player.conn.Send(new ServerBootstrapPacket(Server.BootstrapMode, settingsMissing));
+        }
     }
 
     private void HandleUsername(ByteReader data)

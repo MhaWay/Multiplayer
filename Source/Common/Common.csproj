@@ -16,6 +16,7 @@
     <PackageReference Include="LiteNetLib" Version="0.9.5.2" />
     <PackageReference Include="Lib.Harmony" Version="2.3.6" ExcludeAssets="runtime" />
     <PackageReference Include="System.IO.Compression" Version="4.3.0" />
+    <PackageReference Include="Tomlyn" Version="0.16.2" />
     <PackageReference Include="RimWorld.MultiplayerAPI" Version="0.6.0" />
   </ItemGroup>
 
