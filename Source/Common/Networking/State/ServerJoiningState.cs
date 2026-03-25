@@ -4,6 +4,7 @@ using Multiplayer.Common.Networking.Packet;
 
 namespace Multiplayer.Common;
 
+[PacketHandlerClass]
 public class ServerJoiningState : AsyncConnectionState
 {
     public ServerJoiningState(ConnectionBase connection) : base(connection)

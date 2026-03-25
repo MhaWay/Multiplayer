@@ -39,14 +39,24 @@ public static class Autosaving
 
         try
         {
-            new FileInfo(Path.Combine(Multiplayer.ReplaysDir, $"{fileNameNoExtension}.zip")).Delete();
-            Replay.ForSaving(fileNameNoExtension).WriteData(
+            // Ensure the replays directory exists even when not connected to a server
+            Directory.CreateDirectory(Multiplayer.ReplaysDir);
+
+            var tmp = new FileInfo(Path.Combine(Multiplayer.ReplaysDir, $"{fileNameNoExtension}.tmp.zip"));
+            Replay.ForSaving(tmp).WriteData(
                 currentReplay ?
                     Multiplayer.session.dataSnapshot :
                     SaveLoad.CreateGameDataSnapshot(SaveLoad.SaveGameData(), false)
             );
+
+            var dst = new FileInfo(Path.Combine(Multiplayer.ReplaysDir, $"{fileNameNoExtension}.zip"));
+            if (!dst.Exists) dst.Open(FileMode.Create).Close();
+            tmp.Replace(dst.FullName, null);
+
             Messages.Message("MpGameSaved".Translate(fileNameNoExtension), MessageTypeDefOf.SilentInput, false);
-            Multiplayer.session.lastSaveAt = Time.realtimeSinceStartup;
+            // In bootstrap/offline mode there may be no active session
+            if (Multiplayer.session != null)
+                Multiplayer.session.lastSaveAt = Time.realtimeSinceStartup;
         }
         catch (Exception e)
         {

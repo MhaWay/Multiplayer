@@ -12,6 +12,7 @@ namespace Multiplayer.Common;
 /// Once received, the server writes it to disk and then disconnects all clients and stops,
 /// so an external supervisor can restart it in normal mode.
 /// </summary>
+[PacketHandlerClass]
 public class ServerBootstrapState(ConnectionBase conn) : MpConnectionState(conn)
 {
     // Only one configurator at a time; track by username to survive reconnections

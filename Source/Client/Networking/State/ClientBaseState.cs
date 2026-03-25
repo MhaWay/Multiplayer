@@ -4,6 +4,7 @@ using Multiplayer.Common.Networking.Packet;
 
 namespace Multiplayer.Client;
 
+[PacketHandlerClass]
 public abstract class ClientBaseState(ConnectionBase connection) : MpConnectionState(connection)
 {
     protected MultiplayerSession Session => Multiplayer.session;

@@ -2,16 +2,25 @@ using System.Collections.Generic;
 using HarmonyLib;
 using Multiplayer.Client.Networking;
 using Multiplayer.Common;
+using Multiplayer.Common.Networking.Packet;
 using System.Linq;
 using RimWorld;
 using Verse;
 
 namespace Multiplayer.Client
 {
+    [PacketHandlerClass]
     public class ClientJoiningState : ClientBaseState
     {
         public ClientJoiningState(ConnectionBase connection) : base(connection)
         {
+        }
+
+        [TypedPacketHandler]
+        public void HandleBootstrap(ServerBootstrapPacket packet)
+        {
+            Multiplayer.session.serverIsInBootstrap = packet.bootstrap;
+            Multiplayer.session.serverBootstrapSettingsMissing = packet.settingsMissing;
         }
 
         public override void StartState()
@@ -132,6 +141,13 @@ namespace Multiplayer.Client
 
                 void StartDownloading()
                 {
+                    if (Multiplayer.session.serverIsInBootstrap)
+                    {
+                        connection.ChangeState(ConnectionStateEnum.ClientBootstrap);
+                        Find.WindowStack.Add(new BootstrapConfiguratorWindow(connection));
+                        return;
+                    }
+
                     connection.Send(Packets.Client_WorldRequest);
                     connection.ChangeState(ConnectionStateEnum.ClientLoading);
                 }

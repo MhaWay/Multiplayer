@@ -3,6 +3,7 @@ using Multiplayer.Common;
 
 namespace Multiplayer.Client
 {
+    [PacketHandlerClass]
     public class ClientSteamState : MpConnectionState
     {
         public ClientSteamState(ConnectionBase connection) : base(connection)

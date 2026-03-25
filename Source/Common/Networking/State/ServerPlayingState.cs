@@ -4,6 +4,7 @@ using System.Linq;
 
 namespace Multiplayer.Common
 {
+    [PacketHandlerClass]
     public class ServerPlayingState(ConnectionBase conn) : MpConnectionState(conn)
     {
         [PacketHandler(Packets.Client_WorldReady)]

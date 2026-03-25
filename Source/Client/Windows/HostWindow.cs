@@ -290,5 +290,17 @@ namespace Multiplayer.Client
                 ReplayLoaded();
             }
         }
+
+        /// <summary>
+        /// Programmatically host a multiplayer game from the current single-player state
+        /// without showing the host window. Used by the bootstrap flow.
+        /// </summary>
+        public static bool HostProgrammatically(ServerSettings settings)
+        {
+            var localServer = new MultiplayerServer(settings);
+            Multiplayer.LocalServer = localServer;
+            HostUtil.HostServer(settings, false);
+            return true;
+        }
     }
 }

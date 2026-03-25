@@ -1,6 +1,7 @@
 namespace Multiplayer.Common
 {
     // Unused
+    [PacketHandlerClass]
     public class ServerSteamState : MpConnectionState
     {
         public ServerSteamState(ConnectionBase conn) : base(conn)

@@ -73,6 +73,12 @@ namespace Multiplayer.Client
         }
 
         /// <summary>
+        /// Draw gameplay-related settings without lock parameters. Used by bootstrap configurator.
+        /// </summary>
+        public static void DrawGameplaySettingsOnly(Rect entry, ServerSettings settings, BufferSet buffers)
+            => DrawGameplaySettings(entry, settings, buffers);
+
+        /// <summary>
         /// Draw gameplay-related settings (autosave, multifaction, async time, time control, etc.).
         /// </summary>
         public static void DrawGameplaySettings(Rect entry, ServerSettings settings, BufferSet buffers, bool asyncTimeLocked = false, bool multifactionLocked = false)

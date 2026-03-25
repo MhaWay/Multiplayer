@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 
 namespace Multiplayer.Common;
 
+[PacketHandlerClass]
 public class ServerLoadingState : AsyncConnectionState
 {
     public ServerLoadingState(ConnectionBase connection) : base(connection)
