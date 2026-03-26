@@ -3,10 +3,14 @@ using System.Collections.Generic;
 
 namespace Multiplayer.Common
 {
+    // Uses List<T> instead of Queue<T> because Queue<T> is in System.dll on
+    // .NET Framework but in mscorlib on Unity/Mono.  Common compiles against
+    // Krafs.Rimworld.Ref (Mono) so the emitted reference targets mscorlib,
+    // which causes a TypeLoadException when the Server runs on .NET Framework.
     public class ActionQueue
     {
-        private Queue<Action> queue = new();
-        private Queue<Action> tempQueue = new();
+        private List<Action> queue = new();
+        private List<Action> tempQueue = new();
 
         public void RunQueue(Action<string> errorLogger)
         {
@@ -14,8 +18,7 @@ namespace Multiplayer.Common
             {
                 if (queue.Count > 0)
                 {
-                    foreach (Action a in queue)
-                        tempQueue.Enqueue(a);
+                    tempQueue.AddRange(queue);
                     queue.Clear();
                 }
             }
@@ -23,7 +26,11 @@ namespace Multiplayer.Common
             try
             {
                 while (tempQueue.Count > 0)
-                    tempQueue.Dequeue().Invoke();
+                {
+                    var action = tempQueue[0];
+                    tempQueue.RemoveAt(0);
+                    action.Invoke();
+                }
             }
             catch (Exception e)
             {
@@ -34,7 +41,7 @@ namespace Multiplayer.Common
         public void Enqueue(Action action)
         {
             lock (queue)
-                queue.Enqueue(action);
+                queue.Add(action);
         }
     }
 }

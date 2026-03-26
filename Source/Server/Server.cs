@@ -1,9 +1,14 @@
 ﻿using System.IO.Compression;
+using System.Linq;
+using System.Net;
+using System.Net.Sockets;
+using System.Threading;
 using Multiplayer.Common;
 using Multiplayer.Common.Util;
 using Server;
 
 ServerLog.detailEnabled = true;
+Directory.SetCurrentDirectory(AppContext.BaseDirectory);
 
 const string settingsFile = "settings.toml";
 const string stopCmd = "stop";
@@ -16,9 +21,12 @@ var settings = new ServerSettings
 };
 
 if (File.Exists(settingsFile))
-    settings = TomlSettings.Load(settingsFile);
+{
+    settings = TomlSettingsCommon.Load(settingsFile);
+    if (settings.lan) settings.lanAddress = GetLocalIpAddress() ?? "127.0.0.1";
+}
 else
-    TomlSettings.Save(settings, settingsFile); // Save default settings
+    TomlSettingsCommon.Save(settings, settingsFile); // Save default settings
 
 var server = MultiplayerServer.instance = new MultiplayerServer(settings)
 {
@@ -63,7 +71,7 @@ static void LoadSave(MultiplayerServer server, string path)
     // Parse cmds entry for each map
     foreach (var entry in zip.GetEntries("maps/*_cmds"))
     {
-        var parts = entry.FullName.Split('_');
+        var parts = entry.FullName.Split(new[] { '_' });
 
         if (parts.Length == 3)
         {
@@ -75,7 +83,7 @@ static void LoadSave(MultiplayerServer server, string path)
     // Parse save entry for each map
     foreach (var entry in zip.GetEntries("maps/*_save"))
     {
-        var parts = entry.FullName.Split('_');
+        var parts = entry.FullName.Split(new[] { '_' });
 
         if (parts.Length == 3)
         {
@@ -100,6 +108,23 @@ static byte[] Compress(byte[] input)
 
     }
     return result.ToArray();
+}
+
+static string GetLocalIpAddress()
+{
+    try
+    {
+        using (var socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.IP))
+        {
+            socket.Connect("8.8.8.8", 65530);
+            var endPoint = socket.LocalEndPoint as IPEndPoint;
+            return endPoint.Address.ToString();
+        }
+    }
+    catch
+    {
+        return Dns.GetHostEntry(Dns.GetHostName()).AddressList.FirstOrDefault(i => i.AddressFamily == AddressFamily.InterNetwork)?.ToString();
+    }
 }
 
 class ConsoleSource : IChatSource

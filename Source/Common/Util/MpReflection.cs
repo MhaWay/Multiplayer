@@ -79,7 +79,7 @@ namespace Multiplayer.Client
         public static Type? IndexType(string memberPath)
         {
             InitPropertyOrField(memberPath);
-            return indexTypes.GetValueOrDefault(memberPath);
+            return indexTypes.TryGetValue(memberPath, out var value) ? value : null;
         }
 
         /// <summary>

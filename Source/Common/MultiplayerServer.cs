@@ -243,7 +243,7 @@ namespace Multiplayer.Common
 
         public void HandleChatCmd(IChatSource source, string cmd)
         {
-            var parts = cmd.Split(' ');
+            var parts = cmd.Split(new[] { ' ' });
             var handler = GetChatCmdHandler(parts[0]);
 
             if (handler != null)

@@ -307,11 +307,11 @@ public sealed class PacketWriter(ByteWriter writer) : PacketBuffer(true)
     {
         if (obj.Count > maxLength) throw new WriterException($"Dictionary too big ({obj.Count}>{maxLength})");
         writer.WriteInt32(obj.Count);
-        foreach (var (key, value) in obj)
+        foreach (var kvp in obj)
         {
-            var k = key;
+            var k = kvp.Key;
             bindKey(this, ref k);
-            var v = value;
+            var v = kvp.Value;
             bindValue(this, ref v);
         }
     }
