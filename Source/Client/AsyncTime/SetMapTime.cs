@@ -205,10 +205,14 @@ namespace Multiplayer.Client
         {
             if (map == null) return null;
 
-            TimeSnapshot prev = Current();
-
             var tickManager = Find.TickManager;
+            if (tickManager == null) return null;
+
+            TimeSnapshot prev = Current();
             var mapComp = map.AsyncTime();
+
+            if (mapComp == null)
+                return prev;
 
             tickManager.ticksGameInt = mapComp.mapTicks;
             tickManager.slower = mapComp.slower;

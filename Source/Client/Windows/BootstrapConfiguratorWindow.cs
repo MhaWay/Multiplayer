@@ -48,8 +48,6 @@ namespace Multiplayer.Client
         private Step step;
         private Tab tab;
 
-        private Vector2 scroll;
-
         // UI buffers
         private ServerSettingsUI.BufferSet settingsUiBuffers = new();
 
@@ -79,18 +77,6 @@ namespace Multiplayer.Client
 
         // Vanilla page auto-advance during bootstrap
         private bool autoAdvanceArmed;
-        private float nextPressCooldown;
-        private float randomTileCooldown;
-        private const float NextPressCooldownSeconds = 0.45f;
-        private const float RandomTileCooldownSeconds = 0.9f;
-        private const float AutoAdvanceTimeoutSeconds = 180f;
-        private float autoAdvanceElapsed;
-        private bool worldGenDetected;
-        private float worldGenDelayRemaining;
-        private const float WorldGenDelaySeconds = 1f;
-
-        private float autoAdvanceDiagCooldown;
-        private const float AutoAdvanceDiagCooldownSeconds = 2.0f;
 
         // Delay before saving after entering the map
         private float postMapEnterSaveDelayRemaining;
@@ -103,8 +89,6 @@ namespace Multiplayer.Client
         private bool awaitingControllablePawns;
         private float awaitingControllablePawnsElapsed;
         private const float AwaitControllablePawnsTimeoutSeconds = 30f;
-        private bool startingLettersCleared;
-        private bool landingDialogsCleared;
 
         // Static flag to track bootstrap map initialization
         public static bool AwaitingBootstrapMapInit;
@@ -159,7 +143,6 @@ namespace Multiplayer.Client
             // Check if we have a previously saved Bootstrap.zip from this session (reconnect case)
             if (!autoUploadAttempted && lastSaveReady && !string.IsNullOrEmpty(lastSavedReplayPath) && File.Exists(lastSavedReplayPath))
             {
-                Log.Message($"[Bootstrap] Found previous Bootstrap.zip at {lastSavedReplayPath}, auto-uploading...");
                 savedReplayPath = lastSavedReplayPath;
                 saveReady = true;
                 saveUploadStatus = "Save ready from previous session. Uploading...";
@@ -255,7 +238,7 @@ namespace Multiplayer.Client
             }
 
             // Auto-start upload when save is ready
-            if (saveReady && !isUploadingSave && !saveUploadAutoStarted)
+            if (saveReady && !isUploadingSave && !saveUploadAutoStarted && Multiplayer.Client == null && Current.ProgramState != ProgramState.Playing)
             {
                 saveUploadAutoStarted = true;
                 ReconnectAndUploadSave();
@@ -410,10 +393,15 @@ namespace Multiplayer.Client
                         settingsUploaded = true;
                         statusText = "Server settings configured correctly. Proceed with map generation.";
                         step = Step.GenerateMap;
+
+                        // Clear the flag so WindowUpdate() doesn't reset step back to Settings
+                        if (Multiplayer.session != null)
+                            Multiplayer.session.serverBootstrapSettingsMissing = false;
                     });
                 }
                 catch (Exception e)
                 {
+                    Log.Error($"Bootstrap settings upload failed: {e}");
                     OnMainThread.Enqueue(() =>
                     {
                         isUploadingToml = false;
@@ -451,14 +439,6 @@ namespace Multiplayer.Client
                 saveReady = false;
                 savedReplayPath = null;
                 autoAdvanceArmed = true;
-                nextPressCooldown = 0f;
-                randomTileCooldown = 0f;
-                autoAdvanceElapsed = 0f;
-                worldGenDetected = false;
-                worldGenDelayRemaining = WorldGenDelaySeconds;
-                autoAdvanceDiagCooldown = 0f;
-                startingLettersCleared = false;
-                landingDialogsCleared = false;
                 AwaitingBootstrapMapInit = true;
                 saveUploadStatus = "Generating map...";
             }
@@ -468,9 +448,13 @@ namespace Multiplayer.Client
             }
         }
 
-        private void TryArmAwaitingBootstrapMapInit(string source)
+        private void TryArmAwaitingBootstrapMapInit()
         {
             if (AwaitingBootstrapMapInit)
+                return;
+
+            // Once a local hosted MP session exists, bootstrap map-init detection must stop.
+            if (Multiplayer.Client != null || bootstrapSaveQueued || saveReady || isUploadingSave || isReconnecting || saveUploadAutoStarted)
                 return;
 
             try
@@ -491,20 +475,23 @@ namespace Multiplayer.Client
 
             AwaitingBootstrapMapInit = true;
             saveUploadStatus = "Entered map. Waiting for initialization to complete...";
-            Log.Message($"[Bootstrap] Map init armed via {source}. maps={Find.Maps.Count}");
 
             // Stop page driver
             autoAdvanceArmed = false;
+
+            // Re-add to WindowStack if missing (Root_Play transition clears all windows)
+            if (Find.WindowStack != null && Find.WindowStack.WindowOfType<BootstrapConfiguratorWindow>() == null)
+                Find.WindowStack.Add(this);
         }
 
         internal void TryArmAwaitingBootstrapMapInit_FromRootPlay()
         {
-            TryArmAwaitingBootstrapMapInit("Root_Play.Start");
+            TryArmAwaitingBootstrapMapInit();
         }
 
         internal void TryArmAwaitingBootstrapMapInit_FromRootPlayUpdate()
         {
-            TryArmAwaitingBootstrapMapInit("Root_Play.Update");
+            TryArmAwaitingBootstrapMapInit();
 
             // Also drive the post-map save pipeline from this reliable update loop
             TickPostMapEnterSaveDelayAndMaybeSave();
@@ -512,8 +499,6 @@ namespace Multiplayer.Client
 
         public void OnBootstrapMapInitialized()
         {
-            Log.Message($"[Bootstrap] OnBootstrapMapInitialized CALLED - AwaitingBootstrapMapInit={AwaitingBootstrapMapInit}");
-
             if (!AwaitingBootstrapMapInit)
                 return;
 
@@ -525,8 +510,6 @@ namespace Multiplayer.Client
             awaitingControllablePawnsElapsed = 0f;
             bootstrapSaveQueued = false;
             saveUploadStatus = "Map initialized. Waiting before saving...";
-
-            Log.Message($"[Bootstrap] Map initialized - awaiting colonists");
         }
 
         private void TickPostMapEnterSaveDelayAndMaybeSave()
@@ -534,7 +517,8 @@ namespace Multiplayer.Client
             if (bootstrapSaveQueued || saveReady || isUploadingSave || isReconnecting)
                 return;
 
-            if (postMapEnterSaveDelayRemaining <= 0f)
+            // Skip if timer was never started (default 0) AND we're not waiting for pawns
+            if (postMapEnterSaveDelayRemaining <= 0f && !awaitingControllablePawns)
                 return;
 
             postMapEnterSaveDelayRemaining -= Time.deltaTime;
@@ -557,14 +541,13 @@ namespace Multiplayer.Client
                     }
                     catch (Exception ex)
                     {
-                        Log.Error($"[Bootstrap] Exception checking for colonists: {ex.GetType().Name}: {ex.Message}");
+                        Log.Error($"Exception checking for controllable colonists: {ex.GetType().Name}: {ex.Message}");
                     }
 
                     if (anyColonist)
                     {
                         awaitingControllablePawns = false;
                         try { Find.TickManager.CurTimeSpeed = TimeSpeed.Paused; } catch { }
-                        Log.Message("[Bootstrap] Controllable colonists detected, starting save");
                     }
                 }
 
@@ -573,7 +556,7 @@ namespace Multiplayer.Client
                     if (awaitingControllablePawnsElapsed > AwaitControllablePawnsTimeoutSeconds)
                     {
                         awaitingControllablePawns = false;
-                        Log.Warning("[Bootstrap] Timed out waiting for controllable pawns; saving anyway");
+                        Log.Warning("Timed out waiting for controllable pawns during bootstrap; saving anyway");
                     }
                     else
                     {
@@ -586,8 +569,6 @@ namespace Multiplayer.Client
             postMapEnterSaveDelayRemaining = 0f;
             bootstrapSaveQueued = true;
             saveUploadStatus = "Map initialized. Starting hosted MP session...";
-
-            Log.Message("[Bootstrap] All conditions met, initiating save sequence");
 
             LongEventHandler.QueueLongEvent(() =>
             {
@@ -608,13 +589,11 @@ namespace Multiplayer.Client
                         OnMainThread.Enqueue(() =>
                         {
                             saveUploadStatus = "Failed to host MP session.";
-                            Log.Error("[Bootstrap] HostProgrammatically failed");
+                            Log.Error("HostProgrammatically failed during bootstrap save creation");
                             bootstrapSaveQueued = false;
                         });
                         return;
                     }
-
-                    Log.Message("[Bootstrap] Hosted MP session successfully. Now saving replay...");
 
                     OnMainThread.Enqueue(() =>
                     {
@@ -637,6 +616,8 @@ namespace Multiplayer.Client
 
                                     if (saveReady)
                                     {
+                                        // Prevent DrawGenerateMap from reconnecting before we've returned to the menu.
+                                        saveUploadAutoStarted = true;
                                         saveUploadStatus = "Save created. Returning to menu...";
 
                                         LongEventHandler.QueueLongEvent(() =>
@@ -653,7 +634,7 @@ namespace Multiplayer.Client
                                     else
                                     {
                                         saveUploadStatus = $"Save finished but file not found: {path}";
-                                        Log.Error($"[Bootstrap] Save finished but file missing: {savedReplayPath}");
+                                        Log.Error($"Bootstrap save finished but file was missing: {savedReplayPath}");
                                         bootstrapSaveQueued = false;
                                     }
                                 });
@@ -663,7 +644,7 @@ namespace Multiplayer.Client
                                 OnMainThread.Enqueue(() =>
                                 {
                                     saveUploadStatus = $"Save failed: {e.GetType().Name}: {e.Message}";
-                                    Log.Error($"[Bootstrap] Save failed: {e}");
+                                    Log.Error($"Bootstrap save failed: {e}");
                                     bootstrapSaveQueued = false;
                                 });
                             }
@@ -675,7 +656,7 @@ namespace Multiplayer.Client
                     OnMainThread.Enqueue(() =>
                     {
                         saveUploadStatus = $"Host failed: {e.GetType().Name}: {e.Message}";
-                        Log.Error($"[Bootstrap] Host exception: {e}");
+                        Log.Error($"Bootstrap host exception: {e}");
                         bootstrapSaveQueued = false;
                     });
                 }
@@ -739,7 +720,7 @@ namespace Multiplayer.Client
         internal void BootstrapCoordinatorTick()
         {
             if (!AwaitingBootstrapMapInit)
-                TryArmAwaitingBootstrapMapInit("BootstrapCoordinator");
+                TryArmAwaitingBootstrapMapInit();
 
             TickPostMapEnterSaveDelayAndMaybeSave();
         }

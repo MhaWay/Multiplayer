@@ -27,6 +27,10 @@ namespace Multiplayer.Client
             {
                 Multiplayer.session?.netClient?.PollEvents();
             }
+            catch (InvalidOperationException e) when (e.Message == "Queue empty." || e.Message == "Coda vuota.")
+            {
+                // LiteNetLib can throw here during reconnect/disconnect teardown when its event queue races empty.
+            }
             catch (Exception e)
             {
                 Log.Error($"Exception handling network events: {e}");
