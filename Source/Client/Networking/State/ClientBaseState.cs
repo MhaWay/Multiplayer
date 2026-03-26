@@ -10,7 +10,7 @@ public abstract class ClientBaseState(ConnectionBase connection) : MpConnectionS
     protected MultiplayerSession Session => Multiplayer.session;
 
     [TypedPacketHandler]
-    public void HandleDisconnected(ServerDisconnectPacket packet)
+    public virtual void HandleDisconnected(ServerDisconnectPacket packet)
     {
         ConnectionStatusListeners.TryNotifyAll_Disconnected(SessionDisconnectInfo.From(packet.reason, new ByteReader(packet.data)));
         Multiplayer.StopMultiplayer();

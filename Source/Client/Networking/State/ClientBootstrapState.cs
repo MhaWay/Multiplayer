@@ -10,11 +10,18 @@ namespace Multiplayer.Client;
 /// The server is in ServerBootstrap and expects upload packets; the client must keep the connection alive
 /// and handle bootstrap completion / disconnect packets.
 /// </summary>
-[PacketHandlerClass(inheritHandlers: true)]
+[PacketHandlerClass]
 public class ClientBootstrapState(ConnectionBase connection) : ClientBaseState(connection)
 {
     [TypedPacketHandler]
-    public new void HandleDisconnected(ServerDisconnectPacket packet)
+    public void HandleBootstrap(ServerBootstrapPacket packet)
+    {
+        // The server sends this again when entering ServerBootstrapState.StartState().
+        // We already have the bootstrap info from ClientJoiningState; just ignore it.
+    }
+
+    [TypedPacketHandler]
+    public override void HandleDisconnected(ServerDisconnectPacket packet)
     {
         // If bootstrap completed successfully, show success message before closing the window
         if (packet.reason == MpDisconnectReason.BootstrapCompleted)

@@ -181,6 +181,14 @@ public class ServerBootstrapState(ConnectionBase conn) : MpConnectionState(conn)
 
     private bool IsConfigurator() => configuratorUsername == connection.username;
 
+    [PacketHandler(Packets.Client_Cursor)]
+    public void HandleCursor(ByteReader data)
+    {
+        // Drain the packet so the "not fully consumed" check passes
+        data.ReadByte(); // seq
+        data.ReadByte(); // map
+    }
+
     private static void ResetUploadState()
     {
         pendingFileName = null;
