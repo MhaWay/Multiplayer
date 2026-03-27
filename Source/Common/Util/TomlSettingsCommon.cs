@@ -13,6 +13,16 @@ namespace Multiplayer.Common.Util
     /// </summary>
     public static class TomlSettingsCommon
     {
+        public static string Serialize(ServerSettings settings)
+        {
+            var scribe = new SimpleTomlScribe { mode = SimpleTomlMode.Saving };
+            ScribeLike.provider = scribe;
+
+            settings.ExposeData();
+
+            return scribe.ToToml();
+        }
+
         public static ServerSettings Load(string filename)
         {
             var scribe = new SimpleTomlScribe();
@@ -29,12 +39,7 @@ namespace Multiplayer.Common.Util
 
         public static void Save(ServerSettings settings, string filename)
         {
-            var scribe = new SimpleTomlScribe { mode = SimpleTomlMode.Saving };
-            ScribeLike.provider = scribe;
-
-            settings.ExposeData();
-
-            File.WriteAllText(filename, scribe.ToToml());
+            File.WriteAllText(filename, Serialize(settings));
         }
     }
 
