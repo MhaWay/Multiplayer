@@ -44,7 +44,7 @@ public partial class BootstrapConfiguratorWindow
         else if (tab == Tab.Gameplay)
             ServerSettingsUI.DrawGameplaySettingsOnly(contentRect, settings, buffers);
 
-        settings.EnforceStandaloneRequirements();
+        settings.EnforceStandaloneRequirements(isStandaloneServer: true);
 
         settingsUiBuffers.MaxPlayersBuffer = buffers.MaxPlayersBuffer;
         settingsUiBuffers.AutosaveBuffer = buffers.AutosaveBuffer;
@@ -123,7 +123,7 @@ public partial class BootstrapConfiguratorWindow
 
         try
         {
-            settings.EnforceStandaloneRequirements();
+            settings.EnforceStandaloneRequirements(isStandaloneServer: true);
             connection.Send(new ClientBootstrapSettingsPacket(settings));
         }
         catch (System.Exception e)

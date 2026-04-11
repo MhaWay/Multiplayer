@@ -71,7 +71,7 @@ public partial class BootstrapConfiguratorWindow : Window, IConnectionStatusList
 
         settings.steam = false;
         settings.arbiter = false;
-            settings.EnforceStandaloneRequirements();
+        settings.EnforceStandaloneRequirements(isStandaloneServer: true);
 
         settingsUiBuffers.MaxPlayersBuffer = settings.maxPlayers.ToString();
         settingsUiBuffers.AutosaveBuffer = settings.autosaveInterval.ToString();
