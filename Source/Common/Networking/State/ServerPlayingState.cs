@@ -133,7 +133,7 @@ namespace Multiplayer.Common
                 return;
 
             var accepted = Server.worldData.TryAcceptStandaloneWorldSnapshot(Player, packet.tick, packet.leaseVersion,
-                packet.worldData, packet.sessionData, packet.sha256Hash);
+                packet.worldData, packet.sessionData, packet.sha256Hash, packet.jobId);
 
             if (accepted)
             {
@@ -157,7 +157,7 @@ namespace Multiplayer.Common
                 return;
 
             var accepted = Server.worldData.TryAcceptStandaloneMapSnapshot(Player, packet.mapId, packet.tick,
-                packet.leaseVersion, packet.mapData, packet.sha256Hash);
+                packet.leaseVersion, packet.mapData, packet.sha256Hash, packet.jobId);
 
             if (accepted)
             {

@@ -168,6 +168,68 @@ public class WorldData
         job.state = JoinPointJobState.CollectingUploads;
     }
 
+    /// <summary>
+    /// Check if the active streaming job has all uploads and finalize if so.
+    /// </summary>
+    public void TryFinalizeStreamingJob()
+    {
+        var job = activeStreamingJoinPointJob;
+        if (job == null || job.state != JoinPointJobState.CollectingUploads)
+            return;
+
+        if (!job.IsComplete)
+            return;
+
+        job.state = JoinPointJobState.Completed;
+
+        ServerLog.Detail($"Streaming join point job {job.jobId} completed: world + {job.receivedMapIds.Count} maps received");
+
+        // If a legacy join point creation is in progress, finalize it now
+        if (CreatingJoinPoint)
+            EndJoinPointCreation();
+
+        activeStreamingJoinPointJob = null;
+    }
+
+    /// <summary>
+    /// Abort the active streaming join point job with a reason.
+    /// </summary>
+    public void AbortStreamingJob(string reason)
+    {
+        var job = activeStreamingJoinPointJob;
+        if (job == null)
+            return;
+
+        if (job.state is JoinPointJobState.Completed or JoinPointJobState.Aborted)
+            return;
+
+        job.state = JoinPointJobState.Aborted;
+        ServerLog.Detail($"Streaming join point job {job.jobId} aborted: {reason}");
+
+        // If a legacy join point creation was in progress, abort it too
+        if (CreatingJoinPoint)
+            AbortJoinPointCreation();
+
+        activeStreamingJoinPointJob = null;
+    }
+
+    /// <summary>
+    /// Check if the active streaming job has timed out and abort if so.
+    /// Should be called periodically (e.g., once per second from the tick loop).
+    /// </summary>
+    public void CheckStreamingJobTimeout()
+    {
+        var job = activeStreamingJoinPointJob;
+        if (job == null)
+            return;
+
+        if (job.state is not (JoinPointJobState.Pending or JoinPointJobState.CollectingUploads))
+            return;
+
+        if (job.IsTimedOut)
+            AbortStreamingJob($"Timeout after {StandaloneJoinPointJob.TimeoutSeconds}s (received world={job.receivedWorldUpload}, maps={job.receivedMapIds.Count}/{job.clusterMapIds.Count})");
+    }
+
     private int CurrentJoinPointTick => Server.IsStandaloneServer ? Server.gameTimer : Server.workTicks;
 
     public bool TryStartJoinPointCreation(bool force = false, ServerPlayer? sourcePlayer = null)
@@ -237,8 +299,32 @@ public class WorldData
     }
 
     public bool TryAcceptStandaloneWorldSnapshot(ServerPlayer player, int tick, int leaseVersion, byte[] worldSnapshot,
-        byte[] sessionSnapshot, byte[] expectedHash)
+        byte[] sessionSnapshot, byte[] expectedHash, int jobId = 0)
     {
+        // Streaming join point job validation
+        if (jobId > 0)
+        {
+            if (activeStreamingJoinPointJob == null ||
+                activeStreamingJoinPointJob.jobId != jobId ||
+                activeStreamingJoinPointJob.state != JoinPointJobState.CollectingUploads)
+            {
+                ServerLog.Detail($"Rejected world upload from {player.Username}: no active job {jobId} in CollectingUploads");
+                return false;
+            }
+
+            if (!activeStreamingJoinPointJob.IsWorldUploader(player.id))
+            {
+                ServerLog.Detail($"Rejected world upload from {player.Username}: not assigned world uploader (expected player {activeStreamingJoinPointJob.worldUploaderPlayerId})");
+                return false;
+            }
+
+            if (activeStreamingJoinPointJob.receivedWorldUpload)
+            {
+                ServerLog.Detail($"Rejected world upload from {player.Username}: duplicate world upload for job {jobId}");
+                return false;
+            }
+        }
+
         if (tick < standaloneWorldSnapshot.tick)
             return false;
 
@@ -260,14 +346,45 @@ public class WorldData
         // Persist to disk
         Server.persistence?.WriteWorldSnapshot(worldSnapshot, sessionSnapshot, tick);
 
+        // Track in the active job
+        if (jobId > 0 && activeStreamingJoinPointJob != null && activeStreamingJoinPointJob.jobId == jobId)
+        {
+            activeStreamingJoinPointJob.receivedWorldUpload = true;
+            TryFinalizeStreamingJob();
+        }
+
         return true;
     }
 
     public bool TryAcceptStandaloneMapSnapshot(ServerPlayer player, int mapId, int tick, int leaseVersion,
-        byte[] mapSnapshot, byte[] expectedHash)
+        byte[] mapSnapshot, byte[] expectedHash, int jobId = 0)
     {
         if (mapId < 0)
             return false;
+
+        // Streaming join point job validation
+        if (jobId > 0)
+        {
+            if (activeStreamingJoinPointJob == null ||
+                activeStreamingJoinPointJob.jobId != jobId ||
+                activeStreamingJoinPointJob.state != JoinPointJobState.CollectingUploads)
+            {
+                ServerLog.Detail($"Rejected map upload map={mapId} from {player.Username}: no active job {jobId} in CollectingUploads");
+                return false;
+            }
+
+            if (!activeStreamingJoinPointJob.IsUploaderForMap(player.id, mapId))
+            {
+                ServerLog.Detail($"Rejected map upload map={mapId} from {player.Username}: not assigned uploader for this map");
+                return false;
+            }
+
+            if (activeStreamingJoinPointJob.receivedMapIds.Contains(mapId))
+            {
+                ServerLog.Detail($"Rejected map upload map={mapId} from {player.Username}: duplicate map upload for job {jobId}");
+                return false;
+            }
+        }
 
         var snapshotState = standaloneMapSnapshots.GetOrAddNew(mapId);
         if (tick < snapshotState.tick)
@@ -287,6 +404,13 @@ public class WorldData
 
         // Persist to disk
         Server.persistence?.WriteMapSnapshot(mapId, mapSnapshot);
+
+        // Track in the active job
+        if (jobId > 0 && activeStreamingJoinPointJob != null && activeStreamingJoinPointJob.jobId == jobId)
+        {
+            activeStreamingJoinPointJob.receivedMapIds.Add(mapId);
+            TryFinalizeStreamingJob();
+        }
 
         return true;
     }
