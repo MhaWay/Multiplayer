@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Security.Cryptography;
 using System.Threading.Tasks;
 
@@ -22,6 +23,10 @@ public class WorldData
     public StandaloneWorldSnapshotState standaloneWorldSnapshot = new();
     public Dictionary<int, StandaloneMapSnapshotState> standaloneMapSnapshots = new();
 
+    // Active streaming join point job (only when CanUseStandaloneMapStreaming is true)
+    public StandaloneJoinPointJob? activeStreamingJoinPointJob;
+    private int nextStreamingJobId;
+
     private TaskCompletionSource<WorldData>? dataSource;
 
     public bool CreatingJoinPoint => tmpMapCmds != null;
@@ -31,6 +36,136 @@ public class WorldData
     public WorldData(MultiplayerServer server)
     {
         Server = server;
+    }
+
+    /// <summary>
+    /// Compute the transitive closure of players and maps starting from the requesting player.
+    /// All players that share any map with any player already in the cluster are included,
+    /// along with all their loaded maps. Repeats until no new players/maps are found.
+    /// </summary>
+    public static (HashSet<int> playerIds, HashSet<int> mapIds) ComputeJoinPointCluster(
+        ServerPlayer requestingPlayer, IEnumerable<ServerPlayer> allPlayers)
+    {
+        var clusterPlayerIds = new HashSet<int> { requestingPlayer.id };
+        var clusterMapIds = new HashSet<int>(requestingPlayer.loadedMaps);
+
+        bool changed = true;
+        while (changed)
+        {
+            changed = false;
+            foreach (var player in allPlayers)
+            {
+                if (clusterPlayerIds.Contains(player.id))
+                    continue;
+
+                // Does this player share any map with the cluster?
+                foreach (var mapId in player.loadedMaps)
+                {
+                    if (clusterMapIds.Contains(mapId))
+                    {
+                        clusterPlayerIds.Add(player.id);
+                        // Add all of this player's maps to the cluster
+                        foreach (var m in player.loadedMaps)
+                            changed |= clusterMapIds.Add(m);
+                        break;
+                    }
+                }
+            }
+        }
+
+        return (clusterPlayerIds, clusterMapIds);
+    }
+
+    /// <summary>
+    /// Create a streaming join point job: compute the cluster, assign uploaders, return the job.
+    /// Returns null if a job is already active or if the requesting player has no loaded maps.
+    /// </summary>
+    public StandaloneJoinPointJob? TryCreateStreamingJoinPointJob(
+        ServerPlayer requestingPlayer, string reason)
+    {
+        if (activeStreamingJoinPointJob is { state: JoinPointJobState.Pending or JoinPointJobState.CollectingUploads })
+        {
+            ServerLog.Detail("Streaming join point skipped: job already active");
+            return null;
+        }
+
+        if (requestingPlayer.loadedMaps.Count == 0)
+        {
+            ServerLog.Detail($"Streaming join point skipped: player {requestingPlayer.Username} has no loaded maps");
+            return null;
+        }
+
+        var (playerIds, mapIds) = ComputeJoinPointCluster(requestingPlayer, Server.PlayingPlayers);
+
+        var job = new StandaloneJoinPointJob(++nextStreamingJobId, reason, requestingPlayer.id)
+        {
+            clusterPlayerIds = playerIds,
+            clusterMapIds = mapIds,
+            state = JoinPointJobState.Pending,
+        };
+
+        // Assign world uploader: requesting player preferred
+        job.worldUploaderPlayerId = requestingPlayer.id;
+
+        // Assign map uploaders: requesting player if they have it, else lowest id
+        foreach (var mapId in mapIds)
+        {
+            if (requestingPlayer.loadedMaps.Contains(mapId))
+            {
+                job.mapUploaderByMapId[mapId] = requestingPlayer.id;
+            }
+            else
+            {
+                int bestId = int.MaxValue;
+                foreach (var player in Server.PlayingPlayers)
+                {
+                    if (playerIds.Contains(player.id) && player.loadedMaps.Contains(mapId) && player.id < bestId)
+                        bestId = player.id;
+                }
+
+                job.mapUploaderByMapId[mapId] = bestId;
+            }
+        }
+
+        activeStreamingJoinPointJob = job;
+        return job;
+    }
+
+    /// <summary>
+    /// Send assignment packets to all players in the active job's cluster and transition to CollectingUploads.
+    /// </summary>
+    public void SendStreamingJoinPointAssignments(StandaloneJoinPointJob job)
+    {
+        foreach (var player in Server.PlayingPlayers)
+        {
+            if (!job.clusterPlayerIds.Contains(player.id))
+                continue;
+
+            // Maps this player should save locally (intersection of their loadedMaps and cluster)
+            var mapsToSave = player.loadedMaps.Where(m => job.clusterMapIds.Contains(m)).ToArray();
+
+            // Maps this player is assigned to upload
+            var mapsToUpload = job.mapUploaderByMapId
+                .Where(kv => kv.Value == player.id)
+                .Select(kv => kv.Key)
+                .ToArray();
+
+            var packet = new Networking.Packet.ServerStreamingJoinPointRequestPacket
+            {
+                jobId = job.jobId,
+                reason = job.reason,
+                mapIdsToSave = mapsToSave,
+                mustUploadWorld = job.worldUploaderPlayerId == player.id,
+                mapIdsToUpload = mapsToUpload,
+            };
+
+            player.SendPacket(packet);
+            ServerLog.Detail($"Streaming join point job {job.jobId}: assigned player {player.Username} " +
+                             $"save=[{string.Join(",", mapsToSave)}] uploadMaps=[{string.Join(",", mapsToUpload)}] " +
+                             $"uploadWorld={job.worldUploaderPlayerId == player.id}");
+        }
+
+        job.state = JoinPointJobState.CollectingUploads;
     }
 
     private int CurrentJoinPointTick => Server.IsStandaloneServer ? Server.gameTimer : Server.workTicks;
