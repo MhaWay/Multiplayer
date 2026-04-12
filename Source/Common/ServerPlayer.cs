@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using Multiplayer.Common.Networking.Packet;
 
@@ -33,6 +34,9 @@ namespace Multiplayer.Common
         // Track which map the player is currently on
         public int currentMapId = -1;
         public bool hasReportedCurrentMap;
+
+        // Full set of maps the player has loaded (for map streaming)
+        public HashSet<int> loadedMaps = new();
 
         public string Username => conn.username;
         public int Latency => conn.Latency;

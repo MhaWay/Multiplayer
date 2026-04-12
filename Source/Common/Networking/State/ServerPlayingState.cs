@@ -17,6 +17,8 @@ namespace Multiplayer.Common
         {
             connection.ChangeState(ConnectionStateEnum.ServerLoading);
             Player.ResetTimeVotes();
+            Player.loadedMaps.Clear();
+            Player.hasReportedCurrentMap = false;
         }
 
         [TypedPacketHandler]
@@ -56,6 +58,22 @@ namespace Multiplayer.Common
 
             if (mapToResync is int currentMapId)
                 Server.SendMapResponse(Player, currentMapId);
+        }
+
+        [TypedPacketHandler]
+        public void HandleLoadedMaps(ClientLoadedMapsPacket packet)
+        {
+            if (!Server.CanUseStandaloneMapStreaming(packet.currentMapId))
+                return;
+
+            Player.currentMapId = packet.currentMapId;
+            Player.hasReportedCurrentMap = true;
+            Player.loadedMaps.Clear();
+            foreach (var mapId in packet.loadedMapIds)
+                Player.loadedMaps.Add(mapId);
+
+            if (packet.currentMapId >= 0 && !Player.loadedMaps.Contains(packet.currentMapId))
+                ServerLog.Error($"Player {Player.Username} reported currentMapId={packet.currentMapId} not in loadedMaps");
         }
 
         public const int MaxChatMsgLength = 128;

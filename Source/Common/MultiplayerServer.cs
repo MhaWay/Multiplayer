@@ -232,7 +232,8 @@ namespace Multiplayer.Common
                     player.conn.Send(serialized, reliable);
         }
 
-        public bool CanUseStandaloneMapStreaming(int mapId) => false;
+        public bool CanUseStandaloneMapStreaming(int mapId) =>
+            IsStandaloneServer && settings.multifaction && settings.asyncTime;
 
         public void SendMapResponse(ServerPlayer player, int mapId)
         {
