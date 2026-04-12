@@ -77,6 +77,13 @@ namespace Multiplayer.Common
                 ServerLog.Log("Aborted join point creation because the host disconnected.");
             }
 
+            // Abort streaming join point job if the disconnecting player is in the cluster
+            var job = server.worldData.activeStreamingJoinPointJob;
+            if (job != null && job.clusterPlayerIds.Contains(player.id))
+            {
+                server.worldData.AbortStreamingJob($"Player {player.Username} (id={player.id}) disconnected");
+            }
+
             if (player.hasJoined)
             {
                 // Send PlayerCount command to remove the player from their last known map

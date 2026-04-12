@@ -180,6 +180,9 @@ namespace Multiplayer.Common
             if (NetTimer % NetTicksPerSecond == 0)
                 playerManager.SendLatencies();
 
+            if (NetTimer % NetTicksPerSecond == 0)
+                worldData.CheckStreamingJobTimeout();
+
 
             if (NetTimer % (NetTicksPerSecond / 5) == 0)
             {

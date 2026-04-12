@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 namespace Multiplayer.Common;
@@ -12,9 +13,12 @@ public enum JoinPointJobState : byte
 
 public class StandaloneJoinPointJob
 {
+    public const int TimeoutSeconds = 30;
+
     public int jobId;
     public string reason;
     public int requestingPlayerId;
+    public DateTime createdAtUtc = DateTime.UtcNow;
 
     // Cluster determined by flood-fill
     public HashSet<int> clusterPlayerIds = new();
@@ -39,6 +43,9 @@ public class StandaloneJoinPointJob
 
     public bool IsComplete =>
         receivedWorldUpload && receivedMapIds.Count == clusterMapIds.Count;
+
+    public bool IsTimedOut =>
+        (DateTime.UtcNow - createdAtUtc).TotalSeconds >= TimeoutSeconds;
 
     public bool IsUploaderForMap(int playerId, int mapId) =>
         mapUploaderByMapId.TryGetValue(mapId, out var assigned) && assigned == playerId;
