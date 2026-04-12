@@ -55,7 +55,15 @@ namespace Multiplayer.Common
                 var serialized = ServerCommandPacket.From(cmd).Serialize();
                 foreach (var player in server.PlayingPlayers)
                 {
-                    if (!player.hasReportedCurrentMap || player.currentMapId < 0 || player.currentMapId == mapId)
+                    // Broadcast to players that haven't reported or are on the world map
+                    if (!player.hasReportedCurrentMap || player.currentMapId < 0)
+                    {
+                        player.conn.Send(serialized, true);
+                        continue;
+                    }
+
+                    // Use loadedMaps if available, fall back to currentMapId
+                    if (player.loadedMaps.Count > 0 ? player.loadedMaps.Contains(mapId) : player.currentMapId == mapId)
                         player.conn.Send(serialized, true);
                 }
             }

@@ -36,6 +36,7 @@ public enum Packets : byte
     Client_FrameTime,
     Client_StandaloneWorldSnapshotUpload,
     Client_StandaloneMapSnapshotUpload,
+    Client_LoadedMaps,
 
     // Joining
     Server_ProtocolOk,
