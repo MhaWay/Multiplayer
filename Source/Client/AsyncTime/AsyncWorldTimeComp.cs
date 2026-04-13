@@ -282,10 +282,27 @@ public class AsyncWorldTimeComp : IExposable, ITickable
         {
             if (Multiplayer.session?.ConnectedToStandaloneServer == true)
             {
-                // Standalone: every client uploads world data + individual snapshots
-                SaveLoad.SendGameData(Multiplayer.session.dataSnapshot, true);
-                SaveLoad.SendStandaloneMapSnapshots(Multiplayer.session.dataSnapshot);
-                SaveLoad.SendStandaloneWorldSnapshot(Multiplayer.session.dataSnapshot);
+                var assignment = Multiplayer.session.pendingStreamingAssignment;
+                Multiplayer.session.pendingStreamingAssignment = null;
+
+                if (assignment is { } a)
+                {
+                    // Streaming flow: upload only assigned parts with the jobId
+                    SaveLoad.SendGameData(Multiplayer.session.dataSnapshot, true);
+
+                    if (a.mapIdsToUpload is { Length: > 0 })
+                        SaveLoad.SendStandaloneMapSnapshots(Multiplayer.session.dataSnapshot, a.jobId, a.mapIdsToUpload);
+
+                    if (a.mustUploadWorld)
+                        SaveLoad.SendStandaloneWorldSnapshot(Multiplayer.session.dataSnapshot, a.jobId);
+                }
+                else
+                {
+                    // Legacy standalone flow: every client uploads everything
+                    SaveLoad.SendGameData(Multiplayer.session.dataSnapshot, true);
+                    SaveLoad.SendStandaloneMapSnapshots(Multiplayer.session.dataSnapshot);
+                    SaveLoad.SendStandaloneWorldSnapshot(Multiplayer.session.dataSnapshot);
+                }
             }
             else if (Multiplayer.LocalServer != null || Multiplayer.arbiterInstance)
             {
