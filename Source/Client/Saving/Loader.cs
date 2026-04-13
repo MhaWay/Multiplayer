@@ -79,6 +79,7 @@ public static class Loader
     public static void SendLoadedMapsPacket()
     {
         if (Multiplayer.Client == null) return;
+        if (Multiplayer.session?.ConnectedToStandaloneServer != true) return;
 
         var maps = Find.Maps;
         if (maps == null || maps.Count == 0) return;

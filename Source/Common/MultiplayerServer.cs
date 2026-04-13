@@ -178,10 +178,10 @@ namespace Multiplayer.Common
             NetTimer++;
 
             if (NetTimer % NetTicksPerSecond == 0)
+            {
                 playerManager.SendLatencies();
-
-            if (NetTimer % NetTicksPerSecond == 0)
                 worldData.CheckStreamingJobTimeout();
+            }
 
 
             if (NetTimer % (NetTicksPerSecond / 5) == 0)
@@ -256,10 +256,11 @@ namespace Multiplayer.Common
                 if (started)
                 {
                     ServerLog.Detail($"Map transition for {player.Username} to map {mapId}: forcing join point (stale by {ticksSinceJoinPoint} ticks)");
-                    // Wait for the join point to complete, then send the response with fresh data
+                    // Wait for the join point to complete, then send the response with fresh data.
+                    // Marshal back to the server thread via Enqueue to ensure thread safety.
                     worldData.WaitJoinPoint().ContinueWith(_ =>
                     {
-                        SendMapResponseImmediate(player, mapId);
+                        Enqueue(() => SendMapResponseImmediate(player, mapId));
                     });
                     return;
                 }
@@ -269,7 +270,7 @@ namespace Multiplayer.Common
                     ServerLog.Detail($"Map transition for {player.Username} to map {mapId}: waiting for in-progress join point");
                     worldData.WaitJoinPoint().ContinueWith(_ =>
                     {
-                        SendMapResponseImmediate(player, mapId);
+                        Enqueue(() => SendMapResponseImmediate(player, mapId));
                     });
                     return;
                 }
