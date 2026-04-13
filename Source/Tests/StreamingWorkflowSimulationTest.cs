@@ -645,4 +645,45 @@ public class StreamingWorkflowSimulationTest
         Assert.That(server.worldData.mapData[5], Is.EqualTo(new byte[] { 0x55 }),
             "Non-cluster map data should be preserved");
     }
+
+    // ===== SCENARIO 21: Global commands must reach all players (regression) =====
+
+    [Test]
+    public void Scenario_GlobalCommands_ReachAllPlayers()
+    {
+        var a = AddPlayer("Alice", 1, 2);
+        var b = AddPlayer("Bob", 3);
+
+        var connA = (RecordingConnection)a.conn;
+        var connB = (RecordingConnection)b.conn;
+
+        int sentBeforeA = connA.SentPackets.Count;
+        int sentBeforeB = connB.SentPackets.Count;
+
+        // Send a global command (mapId = ScheduledCommand.Global = -1)
+        server.commands.Send(CommandType.CreateJoinPoint, ScheduledCommand.NoFaction, ScheduledCommand.Global, Array.Empty<byte>());
+
+        Assert.That(connA.SentPackets.Count, Is.GreaterThan(sentBeforeA), "A must receive global commands");
+        Assert.That(connB.SentPackets.Count, Is.GreaterThan(sentBeforeB), "B must receive global commands");
+    }
+
+    [Test]
+    public void Scenario_GlobalCommands_PlayerCount_ReachAllPlayers()
+    {
+        var a = AddPlayer("Alice", 1);
+        var b = AddPlayer("Bob", 2);
+
+        var connA = (RecordingConnection)a.conn;
+        var connB = (RecordingConnection)b.conn;
+
+        int sentBeforeA = connA.SentPackets.Count;
+        int sentBeforeB = connB.SentPackets.Count;
+
+        // PlayerCount is global — must reach all players
+        byte[] data = ByteWriter.GetBytes(1, 2);
+        server.commands.Send(CommandType.PlayerCount, ScheduledCommand.NoFaction, ScheduledCommand.Global, data);
+
+        Assert.That(connA.SentPackets.Count, Is.GreaterThan(sentBeforeA), "A must receive PlayerCount");
+        Assert.That(connB.SentPackets.Count, Is.GreaterThan(sentBeforeB), "B must receive PlayerCount");
+    }
 }

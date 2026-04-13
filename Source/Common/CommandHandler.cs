@@ -50,7 +50,9 @@ namespace Multiplayer.Common
             server.worldData.mapCmds.GetOrAddNew(mapId).Add(toSave);
             server.worldData.tmpMapCmds?.GetOrAddNew(mapId).Add(toSave);
 
-            if (server.CanUseStandaloneMapStreaming(mapId))
+            // Only filter by loadedMaps for map-specific commands (mapId >= 0).
+            // Global commands (mapId < 0) must reach all players.
+            if (mapId >= 0 && server.CanUseStandaloneMapStreaming(mapId))
             {
                 var serialized = ServerCommandPacket.From(cmd).Serialize();
                 foreach (var player in server.PlayingPlayers)
