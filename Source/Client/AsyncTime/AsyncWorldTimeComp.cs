@@ -287,8 +287,11 @@ public class AsyncWorldTimeComp : IExposable, ITickable
 
                 if (assignment is { } a)
                 {
-                    // Streaming flow: upload only assigned parts with the jobId
-                    SaveLoad.SendGameData(Multiplayer.session.dataSnapshot, true);
+                    // Streaming flow: upload only assigned parts with the jobId.
+                    // Do NOT send legacy SendGameData here — HandleWorldDataUpload replaces the
+                    // entire mapData dictionary, so multiple cluster clients would clobber each
+                    // other's data. Instead, TryFinalizeStreamingJob calls EndJoinPointCreation
+                    // once all per-map/per-world streaming uploads are in.
 
                     if (a.mapIdsToUpload is { Length: > 0 })
                         SaveLoad.SendStandaloneMapSnapshots(Multiplayer.session.dataSnapshot, a.jobId, a.mapIdsToUpload);
