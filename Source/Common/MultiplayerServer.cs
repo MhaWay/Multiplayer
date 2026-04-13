@@ -243,6 +243,45 @@ namespace Multiplayer.Common
             if (!CanUseStandaloneMapStreaming(mapId))
                 return;
 
+            // If the last join point is stale, force a fresh one before sending map data.
+            // This reduces the number of commands the joining player must simulate.
+            const int StaleJoinPointThreshold = 400;
+            int ticksSinceJoinPoint = worldData.lastJoinPointAtTick >= 0
+                ? gameTimer - worldData.lastJoinPointAtTick
+                : int.MaxValue;
+
+            if (ticksSinceJoinPoint > StaleJoinPointThreshold)
+            {
+                bool started = worldData.TryStartJoinPointCreation(force: true, sourcePlayer: player);
+                if (started)
+                {
+                    ServerLog.Detail($"Map transition for {player.Username} to map {mapId}: forcing join point (stale by {ticksSinceJoinPoint} ticks)");
+                    // Wait for the join point to complete, then send the response with fresh data
+                    worldData.WaitJoinPoint().ContinueWith(_ =>
+                    {
+                        SendMapResponseImmediate(player, mapId);
+                    });
+                    return;
+                }
+                // If a join point is already in progress, wait for it instead of sending stale data
+                if (worldData.CreatingJoinPoint)
+                {
+                    ServerLog.Detail($"Map transition for {player.Username} to map {mapId}: waiting for in-progress join point");
+                    worldData.WaitJoinPoint().ContinueWith(_ =>
+                    {
+                        SendMapResponseImmediate(player, mapId);
+                    });
+                    return;
+                }
+            }
+
+            SendMapResponseImmediate(player, mapId);
+        }
+
+        private void SendMapResponseImmediate(ServerPlayer player, int mapId)
+        {
+            if (!player.IsPlaying) return; // Player may have disconnected while waiting
+
             ByteWriter writer = new ByteWriter();
             writer.WriteInt32(mapId);
 
