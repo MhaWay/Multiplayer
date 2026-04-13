@@ -256,6 +256,16 @@ public class WorldData
         tmpMapCmds = new Dictionary<int, List<byte[]>>();
         dataSource = new TaskCompletionSource<WorldData>();
 
+        // When streaming is active, create a targeted job and send assignments to cluster players.
+        // The assignments arrive before the CreateJoinPoint command is processed by clients,
+        // so clients will have their assignment ready when they do the save/reload.
+        if (sourcePlayer != null && Server.CanUseStandaloneMapStreaming(0))
+        {
+            var job = TryCreateStreamingJoinPointJob(sourcePlayer, force ? "manual" : "autosave");
+            if (job != null)
+                SendStreamingJoinPointAssignments(job);
+        }
+
         return true;
     }
 

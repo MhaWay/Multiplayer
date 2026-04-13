@@ -244,15 +244,19 @@ namespace Multiplayer.Client
         }
 
         /// <summary>
-        /// Send per-map standalone snapshots to the server for all maps in the given snapshot.
-        /// Called after autosave when connected to a standalone server.
+        /// Send per-map standalone snapshots to the server.
+        /// When mapIds is null, sends all maps in the snapshot.
+        /// When mapIds is provided, sends only those maps.
         /// </summary>
-        public static void SendStandaloneMapSnapshots(GameDataSnapshot snapshot)
+        public static void SendStandaloneMapSnapshots(GameDataSnapshot snapshot, int jobId = 0, int[] mapIds = null)
         {
             var tick = snapshot.CachedAtTime;
 
             foreach (var (mapId, mapBytes) in snapshot.MapData)
             {
+                if (mapIds != null && System.Array.IndexOf(mapIds, mapId) < 0)
+                    continue;
+
                 var compressed = GZipStream.CompressBuffer(mapBytes);
 
                 byte[] hash;
@@ -266,6 +270,7 @@ namespace Multiplayer.Client
                     leaseVersion = 0, // First iteration: no lease negotiation
                     mapData = compressed,
                     sha256Hash = hash,
+                    jobId = jobId,
                 };
 
                 OnMainThread.Enqueue(() => Multiplayer.Client?.SendFragmented(packet.Serialize()));
@@ -274,9 +279,8 @@ namespace Multiplayer.Client
 
         /// <summary>
         /// Send the world + session standalone snapshot to the server.
-        /// Called after autosave when connected to a standalone server.
         /// </summary>
-        public static void SendStandaloneWorldSnapshot(GameDataSnapshot snapshot)
+        public static void SendStandaloneWorldSnapshot(GameDataSnapshot snapshot, int jobId = 0)
         {
             var tick = snapshot.CachedAtTime;
             var worldCompressed = GZipStream.CompressBuffer(snapshot.GameData);
@@ -294,6 +298,7 @@ namespace Multiplayer.Client
                 worldData = worldCompressed,
                 sessionData = sessionCompressed,
                 sha256Hash = hash,
+                jobId = jobId,
             };
 
             OnMainThread.Enqueue(() => Multiplayer.Client?.SendFragmented(packet.Serialize()));

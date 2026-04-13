@@ -61,6 +61,9 @@ namespace Multiplayer.Client
         public AutosaveUnit autosaveUnit;
         public bool ConnectedToStandaloneServer => client != null && isStandaloneServer;
 
+        // Pending streaming join point assignment from the server (set when ServerStreamingJoinPointRequestPacket arrives)
+        public ServerStreamingJoinPointRequestPacket? pendingStreamingAssignment;
+
         public void ApplyBootstrapState(ServerBootstrapPacket packet) =>
             bootstrapState = BootstrapServerState.FromPacket(packet);
 

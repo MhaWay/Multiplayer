@@ -1,8 +1,10 @@
 ﻿using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Xml;
 using HarmonyLib;
 using Multiplayer.Common;
+using Multiplayer.Common.Networking.Packet;
 using Verse;
 using Verse.Profile;
 
@@ -70,6 +72,25 @@ public static class Loader
             Multiplayer.session.dataSnapshot.MapCmds.GetValueSafe(ScheduledCommand.Global) ??
             new List<ScheduledCommand>());
         // Map cmds are added in MapAsyncTimeComp.FinalizeInit
+
+        SendLoadedMapsPacket();
+    }
+
+    public static void SendLoadedMapsPacket()
+    {
+        if (Multiplayer.Client == null) return;
+
+        var maps = Find.Maps;
+        if (maps == null || maps.Count == 0) return;
+
+        var currentMapId = Find.CurrentMap?.uniqueID ?? -1;
+        var loadedMapIds = maps.Select(m => m.uniqueID).ToArray();
+
+        Multiplayer.Client.Send(new ClientLoadedMapsPacket
+        {
+            currentMapId = currentMapId,
+            loadedMapIds = loadedMapIds,
+        });
     }
 
     private static XmlDocument DataSnapshotToXml(GameDataSnapshot dataSnapshot, List<int> mapsToLoad)

@@ -215,6 +215,16 @@ namespace Multiplayer.Client
                 Session.myFactionId = factionId;
             }
         }
+
+        [TypedPacketHandler]
+        public void HandleStreamingJoinPointRequest(ServerStreamingJoinPointRequestPacket packet)
+        {
+            ServerLog.Log($"Received streaming join point assignment: jobId={packet.jobId} reason={packet.reason} " +
+                          $"mapsToSave=[{string.Join(",", packet.mapIdsToSave)}] " +
+                          $"uploadWorld={packet.mustUploadWorld} mapsToUpload=[{string.Join(",", packet.mapIdsToUpload)}]");
+
+            Multiplayer.session.pendingStreamingAssignment = packet;
+        }
     }
 
 }
