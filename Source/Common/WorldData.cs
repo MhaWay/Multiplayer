@@ -356,10 +356,10 @@ public class WorldData
         // Persist to disk
         Server.persistence?.WriteWorldSnapshot(worldSnapshot, sessionSnapshot, tick);
 
-        // Track in the active job
-        if (jobId > 0 && activeStreamingJoinPointJob != null && activeStreamingJoinPointJob.jobId == jobId)
+        // Track in the active job (jobId > 0 guarantees activeStreamingJoinPointJob is valid — see early-return guards above)
+        if (jobId > 0)
         {
-            activeStreamingJoinPointJob.receivedWorldUpload = true;
+            activeStreamingJoinPointJob!.receivedWorldUpload = true;
             TryFinalizeStreamingJob();
         }
 
@@ -415,10 +415,10 @@ public class WorldData
         // Persist to disk
         Server.persistence?.WriteMapSnapshot(mapId, mapSnapshot);
 
-        // Track in the active job
-        if (jobId > 0 && activeStreamingJoinPointJob != null && activeStreamingJoinPointJob.jobId == jobId)
+        // Track in the active job (jobId > 0 guarantees activeStreamingJoinPointJob is valid — see early-return guards above)
+        if (jobId > 0)
         {
-            activeStreamingJoinPointJob.receivedMapIds.Add(mapId);
+            activeStreamingJoinPointJob!.receivedMapIds.Add(mapId);
             TryFinalizeStreamingJob();
         }
 

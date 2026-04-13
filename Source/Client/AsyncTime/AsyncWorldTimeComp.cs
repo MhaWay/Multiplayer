@@ -216,7 +216,12 @@ public class AsyncWorldTimeComp : IExposable, ITickable
 
             if (cmdType == CommandType.CreateJoinPoint)
             {
-                if (Multiplayer.session?.ConnectedToStandaloneServer == true && !TickPatch.currentExecutingCmdIssuedBySelf)
+                // On standalone, only process if either:
+                // 1. The command was issued by this client (legacy flow), or
+                // 2. A streaming assignment is pending (multi-client streaming flow)
+                if (Multiplayer.session?.ConnectedToStandaloneServer == true
+                    && !TickPatch.currentExecutingCmdIssuedBySelf
+                    && Multiplayer.session.pendingStreamingAssignment == null)
                     return;
 
                 LongEventHandler.QueueLongEvent(CreateJoinPointAndSendIfHost, "MpCreatingJoinPoint", false, null);
