@@ -32,9 +32,9 @@ namespace Multiplayer.Common
         public bool pauseOnDesync = true;
         public TimeControl timeControl;
 
-        public void EnforceStandaloneRequirements(bool isStandaloneServer)
+        public void EnforceStandaloneRequirements()
         {
-            if (isStandaloneServer && multifaction)
+            if (multifaction)
                 asyncTime = true;
         }
 
