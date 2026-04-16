@@ -4,7 +4,6 @@ namespace Multiplayer.Common.Networking.Packet;
 public record struct ClientStandaloneWorldSnapshotPacket : IPacket
 {
     public int tick;
-    public int leaseVersion;
     public byte[] worldData;
     public byte[] sessionData;
     public byte[] sha256Hash;
@@ -13,7 +12,6 @@ public record struct ClientStandaloneWorldSnapshotPacket : IPacket
     public void Bind(PacketBuffer buf)
     {
         buf.Bind(ref tick);
-        buf.Bind(ref leaseVersion);
         buf.BindBytes(ref worldData, maxLength: -1);
         buf.BindBytes(ref sessionData, maxLength: -1);
         buf.BindBytes(ref sha256Hash, maxLength: 32);
@@ -26,7 +24,6 @@ public record struct ClientStandaloneMapSnapshotPacket : IPacket
 {
     public int mapId;
     public int tick;
-    public int leaseVersion;
     public byte[] mapData;
     public byte[] sha256Hash;
     public int jobId; // 0 = normal standalone snapshot, >0 = streaming join point job
@@ -35,7 +32,6 @@ public record struct ClientStandaloneMapSnapshotPacket : IPacket
     {
         buf.Bind(ref mapId);
         buf.Bind(ref tick);
-        buf.Bind(ref leaseVersion);
         buf.BindBytes(ref mapData, maxLength: -1);
         buf.BindBytes(ref sha256Hash, maxLength: 32);
         buf.Bind(ref jobId);

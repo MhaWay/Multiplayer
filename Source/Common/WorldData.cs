@@ -248,20 +248,33 @@ public class WorldData
             return false;
         }
 
+        var issuingPlayer = sourcePlayer;
+        if (Server.IsStandaloneServer && issuingPlayer == null)
+        {
+            issuingPlayer = Server.PlayingPlayers.FirstOrDefault(player => player.IsHost)
+                ?? Server.PlayingPlayers.FirstOrDefault();
+
+            if (issuingPlayer == null)
+            {
+                ServerLog.Detail("Join point skipped: no playing player available for standalone creation");
+                return false;
+            }
+        }
+
         ServerLog.Detail($"Join point started at tick={currentTick}, force={force}, standalone={Server.IsStandaloneServer}");
         Server.SendChat("Creating a join point...");
 
         Server.commands.Send(CommandType.CreateJoinPoint, ScheduledCommand.NoFaction, ScheduledCommand.Global, Array.Empty<byte>(),
-            sourcePlayer: Server.IsStandaloneServer ? sourcePlayer : null);
+            sourcePlayer: Server.IsStandaloneServer ? issuingPlayer : null);
         tmpMapCmds = new Dictionary<int, List<byte[]>>();
         dataSource = new TaskCompletionSource<WorldData>();
 
         // When streaming is active, create a targeted job and send assignments to cluster players.
         // The assignments arrive before the CreateJoinPoint command is processed by clients,
         // so clients will have their assignment ready when they do the save/reload.
-        if (sourcePlayer != null && Server.CanUseStandaloneMapStreaming(0))
+        if (issuingPlayer != null && Server.CanUseStandaloneMapStreaming(0))
         {
-            var job = TryCreateStreamingJoinPointJob(sourcePlayer, force ? "manual" : "autosave");
+            var job = TryCreateStreamingJoinPointJob(issuingPlayer, force ? "manual" : "autosave");
             if (job != null)
                 SendStreamingJoinPointAssignments(job);
         }
@@ -308,7 +321,13 @@ public class WorldData
         return dataSource?.Task ?? Task.FromResult(this);
     }
 
+    // Compatibility overload for existing streaming tests while the branch is being aligned
+    // with the standalone snapshot API that no longer carries leaseVersion.
     public bool TryAcceptStandaloneWorldSnapshot(ServerPlayer player, int tick, int leaseVersion, byte[] worldSnapshot,
+        byte[] sessionSnapshot, byte[] expectedHash, int jobId = 0) =>
+        TryAcceptStandaloneWorldSnapshot(player, tick, worldSnapshot, sessionSnapshot, expectedHash, jobId);
+
+    public bool TryAcceptStandaloneWorldSnapshot(ServerPlayer player, int tick, byte[] worldSnapshot,
         byte[] sessionSnapshot, byte[] expectedHash, int jobId = 0)
     {
         // Streaming join point job validation
@@ -347,7 +366,6 @@ public class WorldData
         standaloneWorldSnapshot = new StandaloneWorldSnapshotState
         {
             tick = tick,
-            leaseVersion = leaseVersion,
             producerPlayerId = player.id,
             producerUsername = player.Username,
             sha256Hash = actualHash
@@ -366,7 +384,13 @@ public class WorldData
         return true;
     }
 
+    // Compatibility overload for existing streaming tests while the branch is being aligned
+    // with the standalone snapshot API that no longer carries leaseVersion.
     public bool TryAcceptStandaloneMapSnapshot(ServerPlayer player, int mapId, int tick, int leaseVersion,
+        byte[] mapSnapshot, byte[] expectedHash, int jobId = 0) =>
+        TryAcceptStandaloneMapSnapshot(player, mapId, tick, mapSnapshot, expectedHash, jobId);
+
+    public bool TryAcceptStandaloneMapSnapshot(ServerPlayer player, int mapId, int tick,
         byte[] mapSnapshot, byte[] expectedHash, int jobId = 0)
     {
         if (mapId < 0)
@@ -406,7 +430,6 @@ public class WorldData
 
         mapData[mapId] = mapSnapshot;
         snapshotState.tick = tick;
-        snapshotState.leaseVersion = leaseVersion;
         snapshotState.producerPlayerId = player.id;
         snapshotState.producerUsername = player.Username;
         snapshotState.sha256Hash = actualHash;
@@ -433,8 +456,8 @@ public class WorldData
             hasher.TransformBlock(payload, 0, payload.Length, null, 0);
         }
 
-        hasher.TransformFinalBlock(Array.Empty<byte>(), 0, 0);
-        return hasher.Hash ?? Array.Empty<byte>();
+        hasher.TransformFinalBlock([], 0, 0);
+        return hasher.Hash;
     }
 }
 
@@ -442,7 +465,6 @@ public struct StandaloneWorldSnapshotState
 {
     public StandaloneWorldSnapshotState() { }
     public int tick;
-    public int leaseVersion;
     public int producerPlayerId;
     public string producerUsername = "";
     public byte[] sha256Hash = Array.Empty<byte>();
@@ -452,7 +474,6 @@ public struct StandaloneMapSnapshotState
 {
     public StandaloneMapSnapshotState() { }
     public int tick;
-    public int leaseVersion;
     public int producerPlayerId;
     public string producerUsername = "";
     public byte[] sha256Hash = Array.Empty<byte>();

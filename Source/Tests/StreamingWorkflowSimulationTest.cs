@@ -614,7 +614,6 @@ public class StreamingWorkflowSimulationTest
         server.worldData.TryAcceptStandaloneMapSnapshot(a, 2, 42, 7, new byte[] { 4 }, new byte[0], job.jobId);
 
         Assert.That(server.worldData.standaloneWorldSnapshot.tick, Is.EqualTo(42));
-        Assert.That(server.worldData.standaloneWorldSnapshot.leaseVersion, Is.EqualTo(7));
         Assert.That(server.worldData.standaloneWorldSnapshot.producerPlayerId, Is.EqualTo(a.id));
 
         Assert.That(server.worldData.standaloneMapSnapshots[1].tick, Is.EqualTo(42));

@@ -65,14 +65,15 @@ public class StreamingIntegrationTest
     }
 
     [Test]
-    public void TryStartJoinPointCreation_WithoutSourcePlayer_NoStreamingJob()
+    public void TryStartJoinPointCreation_WithoutSourcePlayer_UsesFallbackPlayer()
     {
         var a = AddPlayer(1);
 
         bool result = server.worldData.TryStartJoinPointCreation(sourcePlayer: null);
 
         Assert.That(result, Is.True);
-        Assert.That(server.worldData.activeStreamingJoinPointJob, Is.Null);
+        Assert.That(server.worldData.activeStreamingJoinPointJob, Is.Not.Null);
+        Assert.That(server.worldData.activeStreamingJoinPointJob!.worldUploaderPlayerId, Is.EqualTo(a.id));
     }
 
     [Test]

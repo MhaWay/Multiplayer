@@ -73,7 +73,7 @@ namespace Multiplayer.Common
                 Player.loadedMaps.Add(mapId);
 
             if (packet.currentMapId >= 0 && !Player.loadedMaps.Contains(packet.currentMapId))
-                ServerLog.Error($"Player {Player.Username} reported currentMapId={packet.currentMapId} not in loadedMaps");
+                ServerLog.Log($"Player {Player.Username} reported currentMapId={packet.currentMapId} not in loadedMaps");
         }
 
         public const int MaxChatMsgLength = 128;
@@ -132,18 +132,18 @@ namespace Multiplayer.Common
             if (!Player.IsPlaying)
                 return;
 
-            var accepted = Server.worldData.TryAcceptStandaloneWorldSnapshot(Player, packet.tick, packet.leaseVersion,
+            var accepted = Server.worldData.TryAcceptStandaloneWorldSnapshot(Player, packet.tick,
                 packet.worldData, packet.sessionData, packet.sha256Hash, packet.jobId);
 
             if (accepted)
             {
                 ServerLog.Detail(
-                    $"Accepted standalone world snapshot tick={packet.tick} lease={packet.leaseVersion} from {Player.Username}");
+                    $"Accepted standalone world snapshot tick={packet.tick} from {Player.Username}");
             }
             else
             {
                 ServerLog.Detail(
-                    $"Rejected standalone world snapshot tick={packet.tick} lease={packet.leaseVersion} from {Player.Username}");
+                    $"Rejected standalone world snapshot tick={packet.tick} from {Player.Username}");
             }
         }
 
@@ -157,17 +157,17 @@ namespace Multiplayer.Common
                 return;
 
             var accepted = Server.worldData.TryAcceptStandaloneMapSnapshot(Player, packet.mapId, packet.tick,
-                packet.leaseVersion, packet.mapData, packet.sha256Hash, packet.jobId);
+                packet.mapData, packet.sha256Hash, packet.jobId);
 
             if (accepted)
             {
                 ServerLog.Detail(
-                    $"Accepted standalone map snapshot map={packet.mapId} tick={packet.tick} lease={packet.leaseVersion} from {Player.Username}");
+                    $"Accepted standalone map snapshot map={packet.mapId} tick={packet.tick} from {Player.Username}");
             }
             else
             {
                 ServerLog.Detail(
-                    $"Rejected standalone map snapshot map={packet.mapId} tick={packet.tick} lease={packet.leaseVersion} from {Player.Username}");
+                    $"Rejected standalone map snapshot map={packet.mapId} tick={packet.tick} from {Player.Username}");
             }
         }
 
@@ -234,7 +234,9 @@ namespace Multiplayer.Common
         {
             var forceJoinPoint = packet.reason == JoinPointRequestReason.Save;
 
-            ServerLog.Detail($"Received Client_Autosaving from {Player.Username}, standalone={Server.IsStandaloneServer}, isHost={Player.IsHost}, reason={packet.reason}, force={forceJoinPoint}");
+            ServerLog.Detail(
+                $"Received Client_Autosaving from {Player.Username}, standalone={Server.IsStandaloneServer}, " +
+                $"isHost={Player.IsHost}, reason={packet.reason}, force={forceJoinPoint}");
 
             // On standalone, any playing client can trigger a join point (always, regardless of settings)
             // On hosted, only the host can trigger and only if the Autosave flag is set
