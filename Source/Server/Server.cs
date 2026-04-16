@@ -20,7 +20,7 @@ if (settingsPresent)
 else
     ServerLog.Log($"Bootstrap mode: '{settingsFile}' not found. Waiting for a client to upload it.");
 
-settings.EnforceStandaloneRequirements(isStandaloneServer: true);
+settings.EnforceStandaloneRequirements();
 ServerLog.detailEnabled = settings.debugMode;
 ServerLog.verboseEnabled = settings.debugMode;
 

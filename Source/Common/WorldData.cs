@@ -322,7 +322,11 @@ public class WorldData
     }
 
     public bool TryAcceptStandaloneWorldSnapshot(ServerPlayer player, int tick, byte[] worldSnapshot,
+<<<<<<< HEAD
         byte[] sessionSnapshot, byte[] expectedHash, int jobId = 0)
+=======
+        byte[] sessionSnapshot, byte[] expectedHash)
+>>>>>>> 8255785 (Fix standalone join point source and trim snapshot metadata)
     {
         // Streaming join point job validation
         if (jobId > 0)
@@ -342,7 +346,7 @@ public class WorldData
             }
 
             if (activeStreamingJoinPointJob.receivedWorldUpload)
-            {
+        byte[] sessionSnapshot, byte[] expectedHash, int jobId = 0)
                 ServerLog.Detail($"Rejected world upload from {player.Username}: duplicate world upload for job {jobId}");
                 return false;
             }
@@ -379,7 +383,11 @@ public class WorldData
     }
 
     public bool TryAcceptStandaloneMapSnapshot(ServerPlayer player, int mapId, int tick,
+<<<<<<< HEAD
         byte[] mapSnapshot, byte[] expectedHash, int jobId = 0)
+=======
+        byte[] mapSnapshot, byte[] expectedHash)
+>>>>>>> 8255785 (Fix standalone join point source and trim snapshot metadata)
     {
         if (mapId < 0)
             return false;
@@ -395,7 +403,7 @@ public class WorldData
                 return false;
             }
 
-            if (!activeStreamingJoinPointJob.IsUploaderForMap(player.id, mapId))
+        byte[] mapSnapshot, byte[] expectedHash, int jobId = 0)
             {
                 ServerLog.Detail($"Rejected map upload map={mapId} from {player.Username}: not assigned uploader for this map");
                 return false;
