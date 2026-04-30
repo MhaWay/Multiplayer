@@ -76,7 +76,6 @@ public class StandalonePersistenceTest
     public void LoadInto_FallsBackToLatestReplaySectionTick()
     {
         var persistence = new StandalonePersistence(tempDir);
-        persistence.EnsureDirectories();
 
         File.WriteAllBytes(Path.Combine(tempDir, "Saved", "world.dat"), [1]);
         File.WriteAllBytes(Path.Combine(tempDir, "Saved", "session.dat"), []);

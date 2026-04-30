@@ -33,6 +33,8 @@ namespace Multiplayer.Common
 
         public void EnforceStandaloneRequirements()
         {
+            // Standalone multifaction depends on async time so each faction can
+            // progress and stream maps independently.
             if (multifaction)
                 asyncTime = true;
         }

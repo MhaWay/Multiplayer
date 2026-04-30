@@ -24,9 +24,10 @@ public class StandalonePersistence
     public StandalonePersistence(string baseDir)
     {
         SavedDir = Path.Combine(baseDir, "Saved");
+        EnsureDirectories();
     }
 
-    public void EnsureDirectories()
+    private void EnsureDirectories()
     {
         Directory.CreateDirectory(SavedDir);
         Directory.CreateDirectory(MapsDir);
@@ -42,8 +43,6 @@ public class StandalonePersistence
     /// </summary>
     public void SeedFromSaveZip(string zipPath)
     {
-        EnsureDirectories();
-
         using var zip = ZipFile.OpenRead(zipPath);
 
         // World save
@@ -174,8 +173,6 @@ public class StandalonePersistence
 
     public void WriteJoinPoint(WorldData worldData, int tick)
     {
-        EnsureDirectories();
-
         if (worldData.savedGame != null)
             AtomicWrite(WorldPath, worldData.savedGame);
 
@@ -201,7 +198,6 @@ public class StandalonePersistence
     /// </summary>
     public void WriteMapSnapshot(int mapId, byte[] compressedMapData)
     {
-        EnsureDirectories();
         AtomicWrite(Path.Combine(MapsDir, $"{mapId}.dat"), compressedMapData);
     }
 
@@ -210,7 +206,6 @@ public class StandalonePersistence
     /// </summary>
     public void WriteWorldSnapshot(byte[] compressedWorldData, byte[] sessionData, int tick)
     {
-        EnsureDirectories();
         AtomicWrite(WorldPath, compressedWorldData);
         AtomicWrite(SessionPath, sessionData);
         WritePersistedTick(tick);

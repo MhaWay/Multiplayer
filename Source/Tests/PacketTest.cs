@@ -156,6 +156,8 @@ public class PacketTest
         yield return new ServerKeepAlivePacket(256);
 
         yield return new ServerTimeControlPacket(2_123_456, 1000, 1.2f);
+        yield return new ClientAutosavingPacket(JoinPointRequestReason.Save);
+        yield return new ClientAutosavingPacket(JoinPointRequestReason.WorldTravel);
 
         yield return new ServerFreezePacket(true, 1234);
         yield return new ServerFreezePacket(false, 9876);
@@ -228,6 +230,41 @@ public class PacketTest
         yield return new ClientTracesPacket { playerId = 123, rawTraces = "trace 1\ntrace 2"u8.ToArray(), rawJittedMethods = "jitted methods"u8.ToArray() };
         yield return ServerTracesPacket.Request(9001, 1000, 5);
         yield return ServerTracesPacket.Transfer("trace 1\ntrace 2"u8.ToArray(), "jitted methods"u8.ToArray());
+        yield return new ClientStandaloneWorldSnapshotPacket
+        {
+            tick = 123,
+            worldData = [1, 2, 3],
+            sessionData = [4, 5],
+            sha256Hash = [6, 7, 8],
+            jobId = 0,
+        };
+
+        yield return new ClientStandaloneWorldSnapshotPacket
+        {
+            tick = 456,
+            worldData = [],
+            sessionData = [9],
+            sha256Hash = [],
+            jobId = 77,
+        };
+
+        yield return new ClientStandaloneMapSnapshotPacket
+        {
+            mapId = 7,
+            tick = 123,
+            mapData = [1, 2, 3, 4],
+            sha256Hash = [5, 6],
+            jobId = 0,
+        };
+
+        yield return new ClientStandaloneMapSnapshotPacket
+        {
+            mapId = 8,
+            tick = 456,
+            mapData = [],
+            sha256Hash = [],
+            jobId = 77,
+        };
 
         yield return new ServerNotificationPacket("key");
         yield return new ServerNotificationPacket("key") { args = ["1", "2", "3"] };
