@@ -61,6 +61,9 @@ namespace Multiplayer.Client
         public ServerStreamingJoinPointRequestPacket? pendingStreamingAssignment;
         public void Stop()
         {
+            // Stop() closes the connection but does not clear client immediately,
+            // so clear the standalone flag to disable standalone-only client logic.
+            isStandaloneServer = false;
             if (client != null)
             {
                 client.Close(MpDisconnectReason.Internal);
