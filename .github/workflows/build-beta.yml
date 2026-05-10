@@ -34,7 +34,7 @@ jobs:
     - name: Build Mod
       run: dotnet build ${{ env.SLN_PATH }} --configuration Release --no-restore
 
-    - name: Publish Server
+        - name: Publish Server
       run: dotnet publish ${{ env.SLN_PATH }}Server/Server.csproj --configuration Release --no-restore --no-build -o output/Server
 
     - name: Package files
