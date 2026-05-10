@@ -30,7 +30,8 @@ public partial class BootstrapConfiguratorWindow : Window, IConnectionStatusList
     private enum Tab
     {
         Connecting,
-        Gameplay
+        Gameplay,
+        Preview
     }
 
     private Step step;
@@ -43,6 +44,8 @@ public partial class BootstrapConfiguratorWindow : Window, IConnectionStatusList
     private bool settingsUploaded;
     private bool saveUploadRequestedByServer;
     private bool saveGenerationStarted;
+    private string tomlPreview;
+    private Vector2 tomlScroll;
 
     private static PendingUploadState pendingUploadState;
 
@@ -94,6 +97,8 @@ public partial class BootstrapConfiguratorWindow : Window, IConnectionStatusList
             saveUploadStatus = "Save created. Reconnected to upload save.zip...";
             pendingUploadState = null;
         }
+
+        RebuildTomlPreview();
     }
 
     public override void PostClose()
