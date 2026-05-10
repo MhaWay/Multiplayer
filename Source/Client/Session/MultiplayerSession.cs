@@ -64,8 +64,6 @@ namespace Multiplayer.Client
 
         public void Stop()
         {
-            isStandaloneServer = false;
-
             if (client != null)
             {
                 client.Close(MpDisconnectReason.Internal);
