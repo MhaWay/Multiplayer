@@ -16,8 +16,8 @@ namespace Multiplayer.Client.Patches
             if (Multiplayer.Client == null)
                 return true;
 
-            // Keep the synchronized update rate until animation timing can be
-            // brought back in line with the vanilla value.
+            // Keep the synchronized rate here until returning to the vanilla value
+            // no longer desyncs animations after map switches.
             __result = VTRSync.GetSynchronizedUpdateRate(thing);
             return false;
         }

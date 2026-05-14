@@ -52,8 +52,6 @@ namespace Multiplayer.Common
                     mapToResync = newMapId;
             }
 
-            // todo check if map id is valid for the player
-
             Server.commands.Send(packet.type, Player.FactionId, packet.mapId, packet.data, Player);
 
             if (mapToResync is int currentMapId)
@@ -250,9 +248,6 @@ namespace Multiplayer.Common
         [TypedPacketHandler]
         public void HandleDebug(ClientDebugPacket _)
         {
-            if (!Server.commands.CanUseDevMode(Player))
-                return;
-
             Server.worldData.mapCmds.Clear();
             Server.gameTimer = Server.startingTimer;
 

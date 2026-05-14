@@ -81,7 +81,8 @@ namespace Multiplayer.Client
                 return;
             }
 
-            if (Multiplayer.LocalServer is not { } server) return;
+            if (Multiplayer.LocalServer is not { } server)
+                return;
 
             if (server.settings.autosaveUnit == AutosaveUnit.Minutes)
             {
