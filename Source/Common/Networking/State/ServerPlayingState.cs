@@ -52,8 +52,6 @@ namespace Multiplayer.Common
                     mapToResync = newMapId;
             }
 
-            // todo check if map id is valid for the player
-
             Server.commands.Send(packet.type, Player.FactionId, packet.mapId, packet.data, Player);
 
             if (mapToResync is int currentMapId)
@@ -84,8 +82,10 @@ namespace Multiplayer.Common
             string msg = packet.msg;
             msg = msg.Trim();
 
-            // todo handle max length
             if (msg.Length == 0) return;
+
+            if (msg.Length > MaxChatMsgLength)
+                msg = msg[..MaxChatMsgLength];
 
             if (msg[0] == '/')
             {
@@ -248,8 +248,6 @@ namespace Multiplayer.Common
         [TypedPacketHandler]
         public void HandleDebug(ClientDebugPacket _)
         {
-            // todo restrict handling
-
             Server.worldData.mapCmds.Clear();
             Server.gameTimer = Server.startingTimer;
 

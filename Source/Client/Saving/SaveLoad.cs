@@ -59,11 +59,6 @@ namespace Multiplayer.Client
                 gameData = SaveGameData();
             }
 
-            // TODO
-            //MapDrawerRegenPatch.copyFrom = drawers;
-            //WorldGridCachePatch.copyFrom = worldGridSaved;
-            //WorldGridExposeDataPatch.copyFrom = worldGridSaved;
-
             MusicManagerPlay musicManager = null;
             if (Find.MusicManagerPlay.gameObjectCreated)
             {

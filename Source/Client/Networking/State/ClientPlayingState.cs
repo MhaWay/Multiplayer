@@ -31,35 +31,22 @@ namespace Multiplayer.Client
                 foreach (var info in packet.players)
                 {
                     if (!Multiplayer.session.players.Any(p => p.id == info.id || p.username == info.username))
-                    {
-                        ServerLog.Log($"PlayerList: Adding player {info.id}:{info.username}");
                         Multiplayer.session.players.Add(PlayerInfo.FromNet(info));
-                    }
                     else
-                    {
                         ServerLog.Error($"PlayerList: Adding player {info.id}:{info.username} - player already exists");
-                    }
                 }
             }
             else if (packet.action == PlayerListAction.Remove)
             {
-                ServerLog.Log($"PlayerList: Removing player with id {packet.playerId}");
                 var matches = Multiplayer.session.players.RemoveAll(p => p.id == packet.playerId);
                 if (matches > 1)
-                {
                     ServerLog.Error($"PlayerList: Removing player with id {packet.playerId} -- occurred {matches} times. This should not happen");
-                }
             }
             else if (packet.action == PlayerListAction.List)
             {
-                ServerLog.Log($"PlayerList: Received player list with {packet.players.Length} entries");
-
                 Multiplayer.session.players.Clear();
                 foreach (var info in packet.players)
-                {
-                    ServerLog.Log($"PlayerList: Adding player from list {info.id}:{info.username}");
                     Multiplayer.session.players.Add(PlayerInfo.FromNet(info));
-                }
             }
             else if (packet.action == PlayerListAction.Latencies)
             {
@@ -67,10 +54,8 @@ namespace Multiplayer.Client
                 {
                     var player = Multiplayer.session.GetPlayerInfo(latency.playerId);
                     if (player == null)
-                    {
-                        ServerLog.Log($"PlayerList: Received latency info for unknown player with id {latency.playerId}");
                         continue;
-                    }
+
                     player.latency = latency.latency;
                     player.ticksBehind = latency.ticksBehind;
                     player.simulating = latency.simulating;
@@ -81,13 +66,9 @@ namespace Multiplayer.Client
             {
                 var player = Multiplayer.session.GetPlayerInfo(packet.playerId);
                 if (player == null)
-                {
-                    ServerLog.Log($"PlayerList: Received player status ({packet.status}) for unknown player with id {packet.playerId}");
-                }
-                else
-                {
-                    player.status = packet.status;
-                }
+                    return;
+
+                player.status = packet.status;
             }
         }
 
@@ -163,7 +144,6 @@ namespace Multiplayer.Client
             var namedArgs = Array.ConvertAll(packet.args, s => (NamedArgument)s);
             var msg = packet.key.Translate(namedArgs);
             Messages.Message(msg, MessageTypeDefOf.SilentInput, false);
-            ServerLog.Log($"Notification: {msg} ({packet.key}, {packet.args.Join(", ")})");
         }
 
         [TypedPacketHandler]
@@ -219,10 +199,6 @@ namespace Multiplayer.Client
         [TypedPacketHandler]
         public void HandleStreamingJoinPointRequest(ServerStreamingJoinPointRequestPacket packet)
         {
-            ServerLog.Log($"Received streaming join point assignment: jobId={packet.jobId} reason={packet.reason} " +
-                          $"mapsToSave=[{string.Join(",", packet.mapIdsToSave)}] " +
-                          $"uploadWorld={packet.mustUploadWorld} mapsToUpload=[{string.Join(",", packet.mapIdsToUpload)}]");
-
             Multiplayer.session.pendingStreamingAssignment = packet;
         }
     }
