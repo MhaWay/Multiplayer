@@ -322,13 +322,14 @@ public class WorldData
     }
 
     public bool TryAcceptStandaloneWorldSnapshot(ServerPlayer player, int tick, byte[] worldSnapshot,
-<<<<<<< HEAD
         byte[] sessionSnapshot, byte[] expectedHash, int jobId = 0)
-=======
-        byte[] sessionSnapshot, byte[] expectedHash)
->>>>>>> 8255785 (Fix standalone join point source and trim snapshot metadata)
     {
-        // Streaming join point job validation
+        return TryAcceptStandaloneWorldSnapshot(player, tick, 0, worldSnapshot, sessionSnapshot, expectedHash, jobId);
+    }
+
+    public bool TryAcceptStandaloneWorldSnapshot(ServerPlayer player, int tick, int leaseVersion,
+        byte[] worldSnapshot, byte[] sessionSnapshot, byte[] expectedHash, int jobId = 0)
+    {
         if (jobId > 0)
         {
             if (activeStreamingJoinPointJob == null ||
@@ -346,7 +347,7 @@ public class WorldData
             }
 
             if (activeStreamingJoinPointJob.receivedWorldUpload)
-        byte[] sessionSnapshot, byte[] expectedHash, int jobId = 0)
+            {
                 ServerLog.Detail($"Rejected world upload from {player.Username}: duplicate world upload for job {jobId}");
                 return false;
             }
@@ -364,15 +365,14 @@ public class WorldData
         standaloneWorldSnapshot = new StandaloneWorldSnapshotState
         {
             tick = tick,
+            leaseVersion = leaseVersion,
             producerPlayerId = player.id,
             producerUsername = player.Username,
             sha256Hash = actualHash
         };
 
-        // Persist to disk
         Server.persistence?.WriteWorldSnapshot(worldSnapshot, sessionSnapshot, tick);
 
-        // Track in the active job (jobId > 0 guarantees activeStreamingJoinPointJob is valid — see early-return guards above)
         if (jobId > 0)
         {
             activeStreamingJoinPointJob!.receivedWorldUpload = true;
@@ -383,16 +383,17 @@ public class WorldData
     }
 
     public bool TryAcceptStandaloneMapSnapshot(ServerPlayer player, int mapId, int tick,
-<<<<<<< HEAD
         byte[] mapSnapshot, byte[] expectedHash, int jobId = 0)
-=======
-        byte[] mapSnapshot, byte[] expectedHash)
->>>>>>> 8255785 (Fix standalone join point source and trim snapshot metadata)
+    {
+        return TryAcceptStandaloneMapSnapshot(player, mapId, tick, 0, mapSnapshot, expectedHash, jobId);
+    }
+
+    public bool TryAcceptStandaloneMapSnapshot(ServerPlayer player, int mapId, int tick,
+        int leaseVersion, byte[] mapSnapshot, byte[] expectedHash, int jobId = 0)
     {
         if (mapId < 0)
             return false;
 
-        // Streaming join point job validation
         if (jobId > 0)
         {
             if (activeStreamingJoinPointJob == null ||
@@ -403,7 +404,7 @@ public class WorldData
                 return false;
             }
 
-        byte[] mapSnapshot, byte[] expectedHash, int jobId = 0)
+            if (!activeStreamingJoinPointJob.IsUploaderForMap(player.id, mapId))
             {
                 ServerLog.Detail($"Rejected map upload map={mapId} from {player.Username}: not assigned uploader for this map");
                 return false;
@@ -426,15 +427,14 @@ public class WorldData
 
         mapData[mapId] = mapSnapshot;
         snapshotState.tick = tick;
+        snapshotState.leaseVersion = leaseVersion;
         snapshotState.producerPlayerId = player.id;
         snapshotState.producerUsername = player.Username;
         snapshotState.sha256Hash = actualHash;
         standaloneMapSnapshots[mapId] = snapshotState;
 
-        // Persist to disk
         Server.persistence?.WriteMapSnapshot(mapId, mapSnapshot);
 
-        // Track in the active job (jobId > 0 guarantees activeStreamingJoinPointJob is valid — see early-return guards above)
         if (jobId > 0)
         {
             activeStreamingJoinPointJob!.receivedMapIds.Add(mapId);
@@ -461,6 +461,7 @@ public struct StandaloneWorldSnapshotState
 {
     public StandaloneWorldSnapshotState() { }
     public int tick;
+    public int leaseVersion;
     public int producerPlayerId;
     public string producerUsername = "";
     public byte[] sha256Hash = Array.Empty<byte>();
@@ -470,6 +471,7 @@ public struct StandaloneMapSnapshotState
 {
     public StandaloneMapSnapshotState() { }
     public int tick;
+    public int leaseVersion;
     public int producerPlayerId;
     public string producerUsername = "";
     public byte[] sha256Hash = Array.Empty<byte>();

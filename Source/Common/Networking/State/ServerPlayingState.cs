@@ -71,7 +71,7 @@ namespace Multiplayer.Common
                 Player.loadedMaps.Add(mapId);
 
             if (packet.currentMapId >= 0 && !Player.loadedMaps.Contains(packet.currentMapId))
-                ServerLog.Error($"Player {Player.Username} reported currentMapId={packet.currentMapId} not in loadedMaps");
+                ServerLog.Log($"Player {Player.Username} reported currentMapId={packet.currentMapId} not in loadedMaps");
         }
 
         public const int MaxChatMsgLength = 128;
