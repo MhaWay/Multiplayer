@@ -18,9 +18,15 @@ namespace Multiplayer.Client
 {
     public record TempGameData(XmlDocument SaveData, byte[] SessionData);
 
+    public enum SaveReloadCacheMode
+    {
+        None,
+        Cache,
+    }
+
     public static class SaveLoad
     {
-        public static TempGameData SaveAndReload()
+        public static TempGameData SaveAndReload(SaveReloadCacheMode cacheMode = SaveReloadCacheMode.None)
         {
             Multiplayer.reloading = true;
 
@@ -58,10 +64,23 @@ namespace Multiplayer.Client
                 gameData = SaveGameData();
             }
 
-            MapDrawerRegenPatch.copyFrom = drawers;
-            WorldGridCachePatch.copyFrom = worldGridSaved;
-            WorldGridExposeDataPatch.copyFrom = worldGridSaved;
-            WorldRendererCachePatch.copyFrom = worldGridSaved;
+            switch (cacheMode)
+            {
+                case SaveReloadCacheMode.Cache:
+                    MapDrawerRegenPatch.copyFrom = drawers;
+                    WorldGridCachePatch.copyFrom = worldGridSaved;
+                    WorldGridExposeDataPatch.copyFrom = worldGridSaved;
+                    WorldRendererCachePatch.copyFrom = worldGridSaved;
+                    break;
+
+                case SaveReloadCacheMode.None:
+                default:
+                    MapDrawerRegenPatch.copyFrom.Clear();
+                    WorldGridCachePatch.copyFrom = null;
+                    WorldGridExposeDataPatch.copyFrom = null;
+                    WorldRendererCachePatch.copyFrom = null;
+                    break;
+            }
 
             MusicManagerPlay musicManager = null;
             if (Find.MusicManagerPlay.gameObjectCreated)
