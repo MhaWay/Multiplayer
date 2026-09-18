@@ -58,6 +58,38 @@ namespace Multiplayer.Common
                 Server.SendMapResponse(Player, currentMapId);
         }
 
+        [TypedPacketHandler]
+        public void HandleViewedMapReport(ClientViewedMapReportPacket packet)
+        {
+            Player.currentMapId = packet.mapId;
+            Player.hasReportedCurrentMap = true;
+        }
+
+        [TypedPacketHandler]
+        public void HandleRequestPlayerCounts(ClientRequestPlayerCountsPacket packet)
+        {
+            var countsByMap = new Dictionary<int, int>();
+            foreach (var player in Server.PlayingPlayers)
+            {
+                if (player.currentMapId == -1)
+                    continue;
+                countsByMap.TryGetValue(player.currentMapId, out int count);
+                countsByMap[player.currentMapId] = count + 1;
+            }
+
+            var mapIds = new int[countsByMap.Count];
+            var counts = new int[countsByMap.Count];
+            int i = 0;
+            foreach (var kv in countsByMap)
+            {
+                mapIds[i] = kv.Key;
+                counts[i] = kv.Value;
+                i++;
+            }
+
+            Player.SendPacket(new ServerPlayerCountsPacket { mapIds = mapIds, counts = counts });
+        }
+
         public const int MaxChatMsgLength = 128;
 
         [TypedPacketHandler]

@@ -61,6 +61,8 @@ public class AsyncWorldTimeComp : IExposable, ITickable
     public int CurrentPlayerCount { get; private set; }
     public int VTR => CurrentPlayerCount > 0 ? VTRSync.MinimumVtr : VTRSync.MaximumVtr;
 
+    public void SetCurrentPlayerCount(int count) => CurrentPlayerCount = Math.Max(0, count);
+
     public int TickableId => -1;
 
     public World world;
@@ -294,6 +296,12 @@ public class AsyncWorldTimeComp : IExposable, ITickable
             {
                 // Hosted: only host/arbiter uploads world data
                 SaveLoad.SendGameData(Multiplayer.session.dataSnapshot, true);
+            }
+
+            if (!Multiplayer.IsReplay)
+            {
+                Patches.VTRSync.ReportCurrentViewedMap();
+                Patches.VTRSync.RequestPlayerCountsSync();
             }
         }
     }

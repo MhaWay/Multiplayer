@@ -78,6 +78,12 @@ public static class Loader
         Multiplayer.AsyncWorldTime.cmds = new Queue<ScheduledCommand>(
             Multiplayer.session.dataSnapshot.MapCmds.GetValueSafe(ScheduledCommand.Global) ?? []);
         // Map cmds are added in MapAsyncTimeComp.FinalizeInit
+
+        if (!Multiplayer.IsReplay && Multiplayer.Client is ClientPlayingState)
+        {
+            OnMainThread.Enqueue(Patches.VTRSync.ReportCurrentViewedMap);
+            OnMainThread.Enqueue(Patches.VTRSync.RequestPlayerCountsSync);
+        }
     }
 
     private static XmlDocument DataSnapshotToXml(GameDataSnapshot dataSnapshot, List<int> mapsToLoad)

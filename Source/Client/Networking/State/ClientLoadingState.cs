@@ -145,5 +145,10 @@ public class ClientLoadingState(ConnectionBase connection) : ClientBaseState(con
         var loadingMs = watch.ElapsedMilliseconds;
         Log.Message($"Loaded game in {loadingMs}ms");
         connection.ChangeState(ConnectionStateEnum.ClientPlaying);
+        if (!Multiplayer.IsReplay)
+        {
+            OnMainThread.Enqueue(Patches.VTRSync.ReportCurrentViewedMap);
+            OnMainThread.Enqueue(Patches.VTRSync.RequestPlayerCountsSync);
+        }
     }
 }

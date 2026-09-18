@@ -46,6 +46,9 @@ namespace Multiplayer.Client
             SaveLoad.SendGameData(Multiplayer.session.dataSnapshot, false);
 
             StartLocalServer();
+
+            Patches.VTRSync.ReportCurrentViewedMap();
+            Patches.VTRSync.RequestPlayerCountsSync();
         }
 
         private static void CreateSession(ServerSettings settings) =>

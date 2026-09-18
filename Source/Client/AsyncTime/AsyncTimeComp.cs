@@ -218,6 +218,8 @@ namespace Multiplayer.Client
         // nevertheless still left.
         public int DecreasePlayerCount() => CurrentPlayerCount = Math.Max(0, CurrentPlayerCount - 1);
 
+        public void SetCurrentPlayerCount(int count) => CurrentPlayerCount = Math.Max(0, count);
+
         public void FinalizeInit()
         {
             cmds = new Queue<ScheduledCommand>(

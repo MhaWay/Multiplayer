@@ -2,6 +2,7 @@ using System;
 using HarmonyLib;
 using Multiplayer.Client.Util;
 using Multiplayer.Common;
+using Multiplayer.Common.Networking.Packet;
 using RimWorld.Planet;
 using Verse;
 
@@ -14,8 +15,6 @@ namespace Multiplayer.Client.Patches
         {
             if (Multiplayer.Client == null)
                 return true;
-
-            VTRSync.FlushPendingViewedMapUpdate();
 
             // Keep the synchronized update rate until animation timing can be
             // brought back in line with the vanilla value.
@@ -50,15 +49,13 @@ namespace Multiplayer.Client.Patches
         }
     }
 
-    static class VTRSync
+    public static class VTRSync
     {
         // Special identifier for the world map (since it doesn't have a uniqueID like regular maps)
         public const int WorldMapId = -2;
         public const int InvalidMapId = -1;
         public static int lastMovedToMapId = InvalidMapId;
         public static int lastSentAtTick = -1;
-        private static int pendingPreviousMapId = InvalidMapId;
-        private static int pendingCurrentMapId = InvalidMapId;
 
         // Vtr rates
         public const int MaximumVtr = 15;
@@ -66,39 +63,11 @@ namespace Multiplayer.Client.Patches
 
         public static int GetSynchronizedUpdateRate(Thing thing) => thing?.MapHeld?.AsyncTime()?.VTR ?? MaximumVtr;
 
-        public static void FlushPendingViewedMapUpdate()
-        {
-            if (Multiplayer.reloading)
-                return;
-
-            if (pendingPreviousMapId == InvalidMapId && pendingCurrentMapId == InvalidMapId)
-                return;
-
-            int previous = pendingPreviousMapId;
-            int current = pendingCurrentMapId;
-            pendingPreviousMapId = InvalidMapId;
-            pendingCurrentMapId = InvalidMapId;
-
-            SendViewedMapUpdateCore(previous, current);
-        }
-
         public static void SendViewedMapUpdate(int previous, int current)
         {
             if (Multiplayer.reloading)
-            {
-                if (pendingPreviousMapId == InvalidMapId && pendingCurrentMapId == InvalidMapId)
-                    pendingPreviousMapId = previous;
-                pendingCurrentMapId = current;
                 return;
-            }
 
-            FlushPendingViewedMapUpdate();
-
-            SendViewedMapUpdateCore(previous, current);
-        }
-
-        private static void SendViewedMapUpdateCore(int previous, int current)
-        {
             string warn = string.Empty;
             if (previous != lastMovedToMapId)
                 warn = $" mismatch between expected previous map {previous} and last moved to map {lastMovedToMapId}";
@@ -107,14 +76,54 @@ namespace Multiplayer.Client.Patches
             MpLog.Debug($"VTR MapSwitchPatch: {lastMovedToMapId}->{current} @ tick {currentTick}{warn}");
             Multiplayer.Client.SendCommand(CommandType.PlayerCount, ScheduledCommand.Global, ByteWriter.GetBytes(previous, current));
             lastMovedToMapId = current;
+
+            ReportViewedMap(current);
+        }
+
+        public static void ReportViewedMap(int mapId)
+        {
+            var client = Multiplayer.Client;
+            if (client == null || Multiplayer.IsReplay)
+                return;
+
+            if (client.State != ConnectionStateEnum.ClientPlaying)
+                return;
+
+            int currentTick = Find.TickManager?.TicksGame ?? 0;
+            MpLog.Debug($"VTR report: map={mapId} @ tick {currentTick}");
+            lastMovedToMapId = mapId;
+            client.Send(new ClientViewedMapReportPacket { mapId = mapId });
+        }
+
+        public static void ReportCurrentViewedMap()
+        {
+            if (Multiplayer.Client == null || Multiplayer.IsReplay)
+                return;
+
+            int current = WorldRendererUtility.CurrentWorldRenderMode == WorldRenderMode.Planet
+                ? WorldMapId
+                : Find.CurrentMap?.uniqueID ?? InvalidMapId;
+
+            ReportViewedMap(current);
+        }
+
+        public static void RequestPlayerCountsSync()
+        {
+            var client = Multiplayer.Client;
+            if (client == null || Multiplayer.IsReplay)
+                return;
+
+            if (client.State != ConnectionStateEnum.ClientPlaying)
+                return;
+
+            MpLog.Debug($"VTR resync request @ tick {Find.TickManager?.TicksGame ?? 0}");
+            client.Send(new ClientRequestPlayerCountsPacket());
         }
 
         public static void Reset()
         {
             lastMovedToMapId = InvalidMapId;
             lastSentAtTick = -1;
-            pendingPreviousMapId = InvalidMapId;
-            pendingCurrentMapId = InvalidMapId;
         }
     }
 
@@ -124,8 +133,6 @@ namespace Multiplayer.Client.Patches
         static void Prefix(Map value)
         {
             if (Multiplayer.Client == null) return;
-
-            VTRSync.FlushPendingViewedMapUpdate();
 
             try
             {
@@ -168,8 +175,6 @@ namespace Multiplayer.Client.Patches
         static void Postfix(WorldRenderMode __result)
         {
             if (Multiplayer.Client == null) return;
-
-            VTRSync.FlushPendingViewedMapUpdate();
 
             try
             {

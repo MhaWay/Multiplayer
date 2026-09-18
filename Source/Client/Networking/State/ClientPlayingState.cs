@@ -220,6 +220,24 @@ namespace Multiplayer.Client
                 Session.myFactionId = factionId;
             }
         }
+
+        [TypedPacketHandler]
+        public void HandlePlayerCounts(ServerPlayerCountsPacket packet)
+        {
+            var countById = new Dictionary<int, int>();
+            int len = Math.Min(packet.mapIds?.Length ?? 0, packet.counts?.Length ?? 0);
+            for (int i = 0; i < len; i++)
+                countById[packet.mapIds[i]] = packet.counts[i];
+
+            foreach (var map in Find.Maps)
+            {
+                if (countById.TryGetValue(map.uniqueID, out int count))
+                    map.AsyncTime().SetCurrentPlayerCount(count);
+            }
+
+            if (countById.TryGetValue(Patches.VTRSync.WorldMapId, out int worldCount))
+                Multiplayer.AsyncWorldTime.SetCurrentPlayerCount(worldCount);
+        }
     }
 
 }
