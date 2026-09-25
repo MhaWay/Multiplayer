@@ -91,6 +91,10 @@ public class ViewedMapSyncTest
         PlayingState(reqPlayer).HandleRequestPlayerCounts(new ClientRequestPlayerCountsPacket());
 
         Assert.That(reqConn.SentPackets, Does.Contain(Packets.Server_PlayerCounts));
+        // Requester is on map 1 too, so the snapshot counts them alongside players a and b.
+        var counts = DecodeLastPlayerCounts(reqConn);
+        Assert.That(counts.ToCountMap(), Is.EqualTo(
+            new Dictionary<int, int> { [1] = 3, [VTRSyncConstants.WorldMapId] = 1 }));
     }
 
     [Test]
@@ -102,6 +106,31 @@ public class ViewedMapSyncTest
         PlayingState(reqPlayer).HandleRequestPlayerCounts(new ClientRequestPlayerCountsPacket());
 
         Assert.That(otherConn.SentPackets, Does.Not.Contain(Packets.Server_PlayerCounts));
+    }
+
+    [Test]
+    public void PlayerCountsSnapshot_ZeroesMapsAbsentFromPacket()
+    {
+        var applied = new Dictionary<int, int> { [5] = 1, [6] = 1, [VTRSyncConstants.WorldMapId] = 1 };
+        var targets = new List<(int mapId, Action<int> setCount)>
+        {
+            (5, value => applied[5] = value),
+            (6, value => applied[6] = value),
+            (VTRSyncConstants.WorldMapId, value => applied[VTRSyncConstants.WorldMapId] = value),
+        };
+
+        new ServerPlayerCountsPacket { mapIds = [5], counts = [2] }.Apply(targets);
+
+        Assert.That(applied, Is.EqualTo(
+            new Dictionary<int, int> { [5] = 2, [6] = 0, [VTRSyncConstants.WorldMapId] = 0 }));
+    }
+
+    private static ServerPlayerCountsPacket DecodeLastPlayerCounts(RecordingConnection conn)
+    {
+        var frame = conn.SentPacketData.Last(d => (d[0] & 0x3F) == (byte)Packets.Server_PlayerCounts);
+        var packet = default(ServerPlayerCountsPacket);
+        packet.Bind(new PacketReader(new ByteReader(frame[1..])));
+        return packet;
     }
 }
 

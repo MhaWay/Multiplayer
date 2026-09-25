@@ -7,6 +7,8 @@ namespace Tests;
 public class RecordingConnection : ConnectionBase
 {
     public List<Packets> SentPackets { get; } = new();
+    /// <summary>Full frames (id byte + payload) of everything sent, for content assertions.</summary>
+    public List<byte[]> SentPacketData { get; } = new();
 
     public RecordingConnection(string username)
     {
@@ -21,6 +23,7 @@ public class RecordingConnection : ConnectionBase
             return;
 
         SentPackets.Add((Packets)(raw[0] & 0x3F));
+        SentPacketData.Add(raw);
     }
 
     protected override void OnClose(ServerDisconnectPacket? goodbye) { }
