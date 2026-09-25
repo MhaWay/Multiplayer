@@ -7,7 +7,7 @@ namespace Tests;
 public class RecordingConnection : ConnectionBase
 {
     public List<Packets> SentPackets { get; } = new();
-    /// <summary>Full frames (id byte + payload) of everything sent, for content assertions.</summary>
+    /// Full frames (id byte + payload) of everything sent, for content assertions.
     public List<byte[]> SentPacketData { get; } = new();
 
     public RecordingConnection(string username)
