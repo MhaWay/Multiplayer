@@ -116,6 +116,37 @@ public class FreezeManagerTest
     }
 
     [Test]
+    public void StaticInstanceNull_PlayerPresent_DoesNotThrow()
+    {
+        // Reproduces issue #991: during server shutdown TryStop() sets the static
+        // MultiplayerServer.instance to null while the server thread's current loop
+        // iteration is still inside FreezeManager.Tick. The old p => p.IsHost lambda
+        // dereferenced the static instance (Server property), throwing NRE that froze
+        // the loop. The fix resolves "is this the host?" locally against our captured
+        // Server field so the tick is crash-safe.
+        var host = AddPlayer("host", isHost: true);
+        host.frozen = true;
+        server.freezeManager.Tick();
+        Assert.That(server.freezeManager.Frozen, Is.True);
+
+        var savedInstance = MultiplayerServer.instance;
+        try
+        {
+            MultiplayerServer.instance = null;
+
+            // Before the fix the FirstOrDefault lambda threw NRE inside get_IsHost
+            // (Server => instance!), aborting FreezeManager.Tick and starving the
+            // server loop. Now it must run cleanly.
+            Assert.DoesNotThrow(() => server.freezeManager.Tick(),
+                "Tick must not throw when the static instance is null (shutdown race)");
+        }
+        finally
+        {
+            MultiplayerServer.instance = savedInstance;
+        }
+    }
+
+    [Test]
     public void HostReconnects_ResumesNormalBehavior()
     {
         // Start with host, freeze

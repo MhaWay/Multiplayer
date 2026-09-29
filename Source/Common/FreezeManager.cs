@@ -29,7 +29,26 @@ namespace Multiplayer.Common
 
         public void Tick()
         {
-            var hostPlayer = Server.PlayingPlayers.FirstOrDefault(p => p.IsHost);
+            // Note: ServerPlayer.IsHost dereferences MultiplayerServer.instance (static).
+            // During a server shutdown (TryStop sets instance = null) the server loop's
+            // current iteration can still execute FreezeManager.Tick and blow up with NRE
+            // on that accessor before the while(running) guard exits. Resolve "is this the
+            // host?" locally against our captured instance so the tick stays crash-safe.
+            // Note: ServerPlayer.IsHost dereferences MultiplayerServer.instance (static).
+            // During a server shutdown (TryStop sets instance = null) the server loop's
+            // current iteration can still execute FreezeManager.Tick and blow up with NRE
+            // on that accessor before the while(running) guard exits. Resolve "is this the
+            // host?" locally against our captured instance so the tick stays crash-safe.
+            var hostUsername = Server.hostUsername;
+            ServerPlayer hostPlayer = null;
+            foreach (var p in Server.PlayingPlayers)
+            {
+                if (hostUsername != null && p.Username == hostUsername)
+                {
+                    hostPlayer = p;
+                    break;
+                }
+            }
 
             if (hostPlayer != null)
             {
