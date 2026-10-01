@@ -1,3 +1,4 @@
+using System.Threading;
 using Multiplayer.Common;
 
 namespace Tests;
@@ -116,34 +117,43 @@ public class FreezeManagerTest
     }
 
     [Test]
-    public void StaticInstanceNull_PlayerPresent_DoesNotThrow()
+    public void TryStop_JoinsServerLoopThread()
     {
-        // Reproduces issue #991: during server shutdown TryStop() sets the static
-        // MultiplayerServer.instance to null while the server thread's current loop
-        // iteration is still inside FreezeManager.Tick. The old p => p.IsHost lambda
-        // dereferenced the static instance (Server property), throwing NRE that froze
-        // the loop. The fix resolves "is this the host?" locally against our captured
-        // Server field so the tick is crash-safe.
-        var host = AddPlayer("host", isHost: true);
-        host.frozen = true;
-        server.freezeManager.Tick();
-        Assert.That(server.freezeManager.Frozen, Is.True);
-
-        var savedInstance = MultiplayerServer.instance;
-        try
+        // The #991 shutdown race is closed by having TryStop wait for the server
+        // loop to finish before nulling the static instance. A fake loop verifies
+        // the wait really happens: TryStop must not return before the loop did.
+        var loopFinished = false;
+        var fakeLoop = new Thread(() =>
         {
-            MultiplayerServer.instance = null;
+            Thread.Sleep(100);
+            loopFinished = true;
+        }) { IsBackground = true };
+        server.serverThread = fakeLoop;
+        fakeLoop.Start();
 
-            // Before the fix the FirstOrDefault lambda threw NRE inside get_IsHost
-            // (Server => instance!), aborting FreezeManager.Tick and starving the
-            // server loop. Now it must run cleanly.
-            Assert.DoesNotThrow(() => server.freezeManager.Tick(),
-                "Tick must not throw when the static instance is null (shutdown race)");
-        }
-        finally
+        server.TryStop();
+
+        Assert.That(loopFinished, Is.True);
+        Assert.That(fakeLoop.IsAlive, Is.False);
+    }
+
+    [Test]
+    public void TryStop_FromLoopThreadItself_DoesNotDeadlock()
+    {
+        // Run() calls TryStop at its own exit; self-joining would hang forever.
+        var completed = false;
+        var loopThread = new Thread(() =>
         {
-            MultiplayerServer.instance = savedInstance;
-        }
+            server.serverThread = Thread.CurrentThread;
+            server.TryStop(); // same thread as the loop we must not join
+            completed = true;
+        }) { IsBackground = true };
+        loopThread.Start();
+
+        // If self-join deadlocked, the loop thread would never reach completed=true
+        // and the join with timeout below would observe an alive thread.
+        Assert.That(loopThread.Join(TimeSpan.FromSeconds(5)), Is.True);
+        Assert.That(completed, Is.True);
     }
 
     [Test]
