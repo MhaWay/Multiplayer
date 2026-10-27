@@ -47,4 +47,20 @@ public static class FactionExtensions
 
         return faction != null;
     }
+
+    /// <summary>
+    /// True if the local player is allowed to manage (accept, dismiss, resolve choices of)
+    /// this quest. In multifaction games only the faction the quest belongs to can manage it.
+    /// Quests not belonging to any player faction are public and manageable by anyone.
+    /// </summary>
+    public static bool CanManageQuest(this Quest quest)
+    {
+        if (Multiplayer.Client == null || Multiplayer.GameComp == null || !Multiplayer.GameComp.multifaction)
+            return true;
+
+        if (!quest.TryGetPlayerFaction(out Faction faction))
+            return true;
+
+        return faction == Multiplayer.RealPlayerFaction;
+    }
 }

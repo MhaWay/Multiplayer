@@ -59,6 +59,26 @@ public static class MainTabWindow_QuestsShouldListNowPatch
     }
 }
 
+[HarmonyPatch(typeof(MainTabWindow_Quests), nameof(MainTabWindow_Quests.DoAcceptButton))]
+static class MainTabWindow_QuestsDoAcceptButtonMultifactionPatch
+{
+    // Hide the accept button for quests belonging to other factions, they are synced
+    // actions and would otherwise let anyone accept someone else's quest.
+    static bool Prefix(Quest ___selected)
+    {
+        return ___selected == null || ___selected.CanManageQuest();
+    }
+}
+
+[HarmonyPatch(typeof(MainTabWindow_Quests), nameof(MainTabWindow_Quests.DoDismissButton))]
+static class MainTabWindow_QuestsDoDismissButtonMultifactionPatch
+{
+    static bool Prefix(Quest ___selected)
+    {
+        return ___selected == null || ___selected.CanManageQuest();
+    }
+}
+
 [HarmonyPatch(typeof(WorldObject), nameof(WorldObject.ShowRelatedQuests), MethodType.Getter)]
 static class WorldObjectShowRelatedQuestsPatch
 {

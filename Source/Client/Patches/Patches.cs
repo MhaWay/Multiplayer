@@ -9,6 +9,7 @@ using System.Reflection;
 using System.Reflection.Emit;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
+using Multiplayer.Client.Factions;
 using Multiplayer.Client.Patches;
 using UnityEngine;
 using Verse;
@@ -406,10 +407,18 @@ namespace Multiplayer.Client
         {
             if (Multiplayer.Client == null) return true;
 
-            foreach(var part in Find.QuestManager.QuestsListForReading.SelectMany(q => q.parts).OfType<QuestPart_Choice>()) {
-                int index = part.choices.IndexOf(___localChoice);
+            foreach (var quest in Find.QuestManager.QuestsListForReading)
+            {
+                foreach (var part in quest.parts.OfType<QuestPart_Choice>())
+                {
+                    int index = part.choices.IndexOf(___localChoice);
 
-                if (index >= 0) {
+                    if (index < 0) continue;
+
+                    // In multifaction only the faction owning the quest can resolve its choices,
+                    // the synced Choose would otherwise let any player decide quest outcomes.
+                    if (!quest.CanManageQuest()) return false;
+
                     Choose(part, index);
                     return false;
                 }
